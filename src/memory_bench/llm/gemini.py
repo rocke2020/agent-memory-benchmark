@@ -4,7 +4,7 @@ import time
 from google import genai
 from google.genai import types
 
-from .base import LLM, Schema, ToolDef
+from .base import EVALUATION_TEMPERATURE, LLM, Schema, ToolDef
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +136,7 @@ class GeminiLLM(LLM):
 
     def _generate_raw(self, contents, config: types.GenerateContentConfig | None = None):
         config = config or types.GenerateContentConfig()
+        config.temperature = EVALUATION_TEMPERATURE
         delay = _RETRY_BASE_DELAY
         for attempt in range(_MAX_RETRIES):
             try:

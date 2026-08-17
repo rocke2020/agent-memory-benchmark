@@ -2,7 +2,7 @@ import json
 import os
 import time
 
-from .base import LLM, Schema
+from .base import EVALUATION_TEMPERATURE, LLM, Schema
 
 _MAX_RETRIES = 6
 _RETRY_BASE_DELAY = 5
@@ -32,6 +32,7 @@ class OpenAILLM(LLM):
                 response = self._client.chat.completions.create(
                     model=self._model,
                     messages=[{"role": "user", "content": prompt}],
+                    temperature=EVALUATION_TEMPERATURE,
                     response_format={
                         "type": "json_schema",
                         "json_schema": {"name": "response", "schema": schema_json, "strict": True},

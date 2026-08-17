@@ -3,6 +3,9 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 
+EVALUATION_TEMPERATURE = 0.0
+
+
 @dataclass
 class Schema:
     """Provider-agnostic JSON schema description for structured output."""
