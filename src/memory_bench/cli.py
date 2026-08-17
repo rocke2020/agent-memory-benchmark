@@ -22,14 +22,6 @@ app = typer.Typer(help="Open Memory Benchmark (OMB).")
 console = Console()
 
 
-def _resolve_gemini_key() -> None:
-    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not key:
-        typer.echo("Error: GEMINI_API_KEY environment variable is not set.", err=True)
-        raise typer.Exit(1)
-    os.environ["GOOGLE_API_KEY"] = key
-
-
 @app.command()
 def run(
     split: str = typer.Option(..., "--split", "-s"),
@@ -53,8 +45,6 @@ def run(
     description: str = typer.Option(None, "--description", "-d", help="Optional description for this run (stored in the result JSON)"),
 ) -> None:
     """Run an evaluation on a single split (optionally filtered to a category)."""
-    _resolve_gemini_key()
-
     ds = get_dataset(dataset)
 
     if split not in ds.splits:

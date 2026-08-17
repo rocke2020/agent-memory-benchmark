@@ -1,10 +1,137 @@
 import asyncio
+import hashlib
 import os
+import re
 import time
 from pathlib import Path
 
 from ..models import Document
 from .base import MemoryProvider
+
+
+DEFAULT_HINDSIGHT_LLM_PROVIDER = "gemini"
+DEFAULT_HINDSIGHT_LLM_MODEL = "gemini-2.5-flash-lite"
+OPENAI_RESPONSES_MIN_API_VERSION = (0, 9, 0)
+HINDSIGHT_PROFILE_FINGERPRINT_LENGTH = 12
+SUPPORTED_HINDSIGHT_LLM_PROVIDERS = frozenset(
+    {"openai", "openai-responses", "anthropic", "gemini"}
+)
+HINDSIGHT_LLM_CONVENTIONAL_CREDENTIALS = {
+    "openai": (
+        ("OPENAI_API_KEY", "OPENAI_BASE_URL"),
+        ("DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL"),
+    ),
+    "openai-responses": (("OPENAI_API_KEY", "OPENAI_BASE_URL"),),
+    "anthropic": (("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"),),
+    "gemini": (("GEMINI_API_KEY", None), ("GOOGLE_API_KEY", None)),
+}
+
+
+def _hindsight_llm_credentials(provider: str) -> tuple[str, str | None]:
+    explicit_api_key = os.environ.get("HINDSIGHT_API_LLM_API_KEY")
+    explicit_base_url = None
+    if provider != "gemini":
+        explicit_base_url = os.environ.get("HINDSIGHT_API_LLM_BASE_URL")
+    if explicit_base_url and not explicit_api_key:
+        raise ValueError(
+            "HINDSIGHT_API_LLM_API_KEY is required when "
+            "HINDSIGHT_API_LLM_BASE_URL is set."
+        )
+    if explicit_api_key:
+        return explicit_api_key, explicit_base_url
+
+    credential_names = []
+    for api_key_name, base_url_name in HINDSIGHT_LLM_CONVENTIONAL_CREDENTIALS[
+        provider
+    ]:
+        credential_names.append(api_key_name)
+        api_key = os.environ.get(api_key_name)
+        if not api_key:
+            continue
+
+        base_url = explicit_base_url
+        if base_url is None and base_url_name is not None:
+            base_url = os.environ.get(base_url_name)
+        if api_key_name == "DEEPSEEK_API_KEY" and not base_url:
+            raise ValueError(
+                "DEEPSEEK_BASE_URL is required when Hindsight uses DEEPSEEK_API_KEY."
+            )
+        return api_key, base_url
+
+    fallback_names = ", ".join(credential_names)
+    raise ValueError(
+        "HINDSIGHT_API_LLM_API_KEY is not set and no provider credential was found "
+        f"in: {fallback_names}."
+    )
+
+
+def _hindsight_embed_api_version() -> str:
+    configured_version = os.environ.get("HINDSIGHT_EMBED_API_VERSION")
+    if configured_version:
+        return configured_version
+
+    from hindsight_embed import __version__
+
+    return __version__
+
+
+def _version_tuple(version: str) -> tuple[int, int, int] | None:
+    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?", version)
+    if match is None:
+        return None
+    return tuple(int(part) for part in match.groups())
+
+
+def _hindsight_llm_config() -> dict[str, str]:
+    provider = os.environ.get(
+        "HINDSIGHT_API_LLM_PROVIDER", DEFAULT_HINDSIGHT_LLM_PROVIDER
+    ).lower()
+    if provider not in SUPPORTED_HINDSIGHT_LLM_PROVIDERS:
+        supported = ", ".join(sorted(SUPPORTED_HINDSIGHT_LLM_PROVIDERS))
+        raise ValueError(
+            f"Unknown HINDSIGHT_API_LLM_PROVIDER '{provider}'. Available: {supported}"
+        )
+
+    if provider == "openai-responses":
+        daemon_version = _hindsight_embed_api_version()
+        parsed_version = _version_tuple(daemon_version)
+        if parsed_version is None or parsed_version < OPENAI_RESPONSES_MIN_API_VERSION:
+            raise ValueError(
+                "HINDSIGHT_API_LLM_PROVIDER=openai-responses requires "
+                "HINDSIGHT_EMBED_API_VERSION=0.9.0 or newer; "
+                f"got '{daemon_version}'."
+            )
+
+    model = os.environ.get("HINDSIGHT_API_LLM_MODEL")
+    if not model and provider == DEFAULT_HINDSIGHT_LLM_PROVIDER:
+        model = DEFAULT_HINDSIGHT_LLM_MODEL
+    if not model:
+        raise ValueError(
+            f"HINDSIGHT_API_LLM_MODEL is required for provider '{provider}'."
+        )
+
+    api_key, base_url = _hindsight_llm_credentials(provider)
+
+    config = {
+        "llm_provider": provider,
+        "llm_model": model,
+        "llm_api_key": api_key,
+    }
+    if base_url:
+        config["llm_base_url"] = base_url
+    return config
+
+
+def _hindsight_profile(bank_id: str, llm_config: dict[str, str]) -> str:
+    identity_parts = (
+        _hindsight_embed_api_version(),
+        llm_config["llm_provider"],
+        llm_config["llm_model"],
+        llm_config.get("llm_base_url", ""),
+        llm_config["llm_api_key"],
+    )
+    fingerprint = hashlib.sha256("\0".join(identity_parts).encode()).hexdigest()
+    return f"omb-{bank_id}-{fingerprint[:HINDSIGHT_PROFILE_FINGERPRINT_LENGTH]}"
 
 
 def _deduplicate_results(results):
@@ -324,9 +451,10 @@ class _HindsightBase(MemoryProvider):
 
 # ── Embedded provider ─────────────────────────────────────────────────────────
 
+
 class HindsightMemoryProvider(_HindsightBase):
     name = "hindsight"
-    description = "Embedded Hindsight fact store using gemini-2.5-flash-lite as the extraction model. Recall uses all memory types (world + experience + observation) with no type filter applied."
+    description = "Embedded Hindsight fact store using a configurable extraction LLM. Recall uses all memory types (world + experience + observation) with no type filter applied."
     kind = "local"
     provider = "hindsight"
     variant = "local"
@@ -334,18 +462,14 @@ class HindsightMemoryProvider(_HindsightBase):
     logo = "https://www.google.com/s2/favicons?sz=32&domain=hindsight.vectorize.io"
     concurrency = 4
 
-    def __init__(self):
-        super().__init__()
-        self._api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-
     def prepare(self, store_dir: Path, unit_ids: set[str] | None = None, reset: bool = True) -> None:
         super().prepare(store_dir, unit_ids)
         from hindsight import HindsightEmbedded
+
+        llm_config = _hindsight_llm_config()
         self._client = HindsightEmbedded(
-            profile=f"omb-{self._bank_id}",
-            llm_provider="gemini",
-            llm_model="gemini-2.5-flash-lite",
-            llm_api_key=self._api_key,
+            profile=_hindsight_profile(self._bank_id, llm_config),
+            **llm_config,
         )
         try:
             self._client.banks.list()

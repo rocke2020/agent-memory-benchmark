@@ -18,19 +18,56 @@ The only credible benchmark result is one you can reproduce yourself. AMB publis
 
 ## How it works
 
+AMB separates memory extraction, final-answer generation, and answer judging so each role can use the model and API protocol appropriate to its job.
+
 1. **Ingest** — documents from a dataset are loaded into a memory provider
 2. **Retrieve** — for each query the memory provider retrieves relevant context
-3. **Generate** — a Gemini model produces an answer from the retrieved context
-4. **Judge** — a second Gemini call scores the answer against gold answers
+3. **Generate** — the model selected by `OMB_ANSWER_LLM` and `OMB_ANSWER_MODEL` produces an answer from the retrieved context
+4. **Judge** — the model selected by `OMB_JUDGE_LLM` and `OMB_JUDGE_MODEL` scores the answer against gold answers
 
 Retrieval time is tracked separately from generation; ingestion time is also recorded.
 
+### Hindsight extraction protocols
+
+The embedded Hindsight provider delegates memory extraction to the Hindsight daemon. AMB selects the daemon adapter with `HINDSIGHT_API_LLM_PROVIDER`; this Hindsight provider selector identifies an API protocol adapter, not necessarily the model vendor.
+
+| `HINDSIGHT_API_LLM_PROVIDER` | API protocol | Example vendor |
+| --- | --- | --- |
+| `openai` | OpenAI Chat Completions | OpenAI, DeepSeek, or another compatible endpoint |
+| `openai-responses` | OpenAI Responses | OpenAI |
+| `anthropic` | Anthropic Messages | Anthropic |
+| `gemini` | Gemini GenerateContent | Google |
+
+Set `HINDSIGHT_API_LLM_MODEL` and, when overriding credentials, `HINDSIGHT_API_LLM_API_KEY`. Setting `HINDSIGHT_API_LLM_BASE_URL` also requires the Hindsight-specific key so a conventional credential cannot be sent to an unrelated endpoint. When neither Hindsight-specific value is set, AMB resolves a key and base URL from the same conventional provider namespace. Native Gemini does not use a custom base URL in this integration.
+
+When no selector is set, AMB preserves the original `gemini` and `gemini-2.5-flash-lite` defaults. The pinned `hindsight-api@0.4.17` daemon supports `openai`, `anthropic`, and `gemini`. The `openai-responses` adapter requires `hindsight-api@0.9.0` or newer, selected with `HINDSIGHT_EMBED_API_VERSION`. Changing that daemon version is not a strict reproduction of the original pinned Hindsight run, and compatibility between the pinned 0.4.17 embedded client and a 0.9.x daemon remains unverified without an end-to-end run.
+
+The four selectors are covered by offline configuration tests. To limit external calls and cost, this branch's live provider test covers only the active DeepSeek Chat Completions path.
+
+AMB derives the embedded Hindsight profile from the selected daemon version and extraction configuration. This prevents a healthy daemon started for one provider from being silently reused after the provider, model, endpoint, or credential changes; the credential itself is never placed in the profile name. Each profile owns a separate pg0 memory store, so changing any fingerprinted setting requires re-ingestion and cannot reuse the prior profile with `--skip-ingestion`.
+
+This branch currently uses DeepSeek through Chat Completions:
+
+```dotenv
+HINDSIGHT_EMBED_API_VERSION=0.4.17
+HINDSIGHT_API_LLM_PROVIDER=openai
+HINDSIGHT_API_LLM_MODEL=deepseek-v4-flash
+HINDSIGHT_API_LLM_API_KEY=${DEEPSEEK_API_KEY}
+HINDSIGHT_API_LLM_BASE_URL=${DEEPSEEK_BASE_URL}
+OPENAI_API_KEY=${DEEPSEEK_API_KEY}
+OPENAI_BASE_URL=${DEEPSEEK_BASE_URL}
+```
+
 ## Setup
 
+Configure credentials for the answer, judge, and memory-extraction models selected for the run. For this branch's DeepSeek configuration:
+
 ```bash
-# Copy and fill in your API key
-cp .env.example .env   # or just create .env with:
-# GEMINI_API_KEY=...
+# Store the real value only in the ignored local .env file.
+DEEPSEEK_API_KEY=...
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+OPENAI_API_KEY=${DEEPSEEK_API_KEY}
+OPENAI_BASE_URL=${DEEPSEEK_BASE_URL}
 ```
 
 ## Usage
@@ -65,5 +102,5 @@ Results are saved to `outputs/{dataset}/{memory}/{mode}/{domain}.json` and can b
 ## Requirements
 
 - Python ≥ 3.11
-- `GEMINI_API_KEY` in `.env` or environment
+- Credentials for the selected extraction, answer, and judge providers
 - For MemBench: set `MEMBENCH_DATA_PATH` to your local data directory
