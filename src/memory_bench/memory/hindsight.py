@@ -5,6 +5,9 @@ import re
 import time
 from pathlib import Path
 
+from hindsight_embed.daemon_embed_manager import DaemonEmbedManager
+
+from ..llm.base import EVALUATION_TEMPERATURE
 from ..models import Document
 from .base import MemoryProvider
 
@@ -13,9 +16,33 @@ DEFAULT_HINDSIGHT_LLM_PROVIDER = "gemini"
 DEFAULT_HINDSIGHT_LLM_MODEL = "gemini-2.5-flash-lite"
 OPENAI_RESPONSES_MIN_API_VERSION = (0, 9, 0)
 HINDSIGHT_PROFILE_FINGERPRINT_LENGTH = 12
+HINDSIGHT_DAEMON_HTTPX_REQUIREMENT = "httpx[socks]>=0.27"
+HINDSIGHT_DAEMON_LAUNCHER_VERSION = 1
 SUPPORTED_HINDSIGHT_LLM_PROVIDERS = frozenset(
     {"openai", "openai-responses", "anthropic", "gemini"}
 )
+
+
+class _HindsightDaemonManager(DaemonEmbedManager):
+    """Add SOCKS transport support to Hindsight's isolated uvx daemon."""
+
+    def _find_api_command(self) -> list[str]:
+        command = super()._find_api_command()
+        if command[0] != "uvx":
+            return command
+        launcher = Path(__file__).with_name("_hindsight_daemon.py")
+        return [
+            command[0],
+            "--from",
+            command[1],
+            "--with",
+            HINDSIGHT_DAEMON_HTTPX_REQUIREMENT,
+            "python",
+            str(launcher),
+            str(EVALUATION_TEMPERATURE),
+        ]
+
+
 HINDSIGHT_LLM_CONVENTIONAL_CREDENTIALS = {
     "openai": (
         ("OPENAI_API_KEY", "OPENAI_BASE_URL"),
@@ -125,6 +152,8 @@ def _hindsight_llm_config() -> dict[str, str]:
 def _hindsight_profile(bank_id: str, llm_config: dict[str, str]) -> str:
     identity_parts = (
         _hindsight_embed_api_version(),
+        str(HINDSIGHT_DAEMON_LAUNCHER_VERSION),
+        str(EVALUATION_TEMPERATURE),
         llm_config["llm_provider"],
         llm_config["llm_model"],
         llm_config.get("llm_base_url", ""),
@@ -471,10 +500,13 @@ class HindsightMemoryProvider(_HindsightBase):
             profile=_hindsight_profile(self._bank_id, llm_config),
             **llm_config,
         )
-        try:
-            self._client.banks.list()
-        except Exception:
-            pass
+        # Hindsight 0.4.x launches its API in an isolated uvx environment that does
+        # not inherit this project's HTTPX SOCKS extra. Remove this manager when the
+        # upstream daemon declares SOCKS support itself.
+        self._client._manager = _HindsightDaemonManager()
+        # Force startup here so dependency, proxy, and LLM connection failures are
+        # reported before ingestion begins.
+        _ = self._client.url
 
     def ingest(self, documents: list[Document]) -> None:
         super().ingest(documents)

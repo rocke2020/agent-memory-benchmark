@@ -1,10 +1,266 @@
+import asyncio
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 
 class HindsightLlmProviderTest(unittest.TestCase):
+    def test_prepare_propagates_daemon_startup_failure(self):
+        from memory_bench.memory.hindsight import (
+            HindsightMemoryProvider,
+            _HindsightDaemonManager,
+        )
+
+        embedded_client = MagicMock()
+        type(embedded_client).url = PropertyMock(
+            side_effect=RuntimeError("daemon start failed")
+        )
+        environment = {
+            "HINDSIGHT_API_LLM_PROVIDER": "openai",
+            "HINDSIGHT_API_LLM_MODEL": "deepseek-v4-flash",
+            "HINDSIGHT_API_LLM_API_KEY": "test-key",
+            "HINDSIGHT_API_LLM_BASE_URL": "https://deepseek.example/v1",
+            "HINDSIGHT_EMBED_API_VERSION": "0.4.17",
+        }
+
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch("hindsight.HindsightEmbedded", return_value=embedded_client),
+            self.assertRaisesRegex(RuntimeError, "daemon start failed"),
+        ):
+            HindsightMemoryProvider().prepare(Path("benchmark-store"))
+
+        self.assertIsInstance(embedded_client._manager, _HindsightDaemonManager)
+
+    def test_embedded_daemon_uvx_installs_socks_transport_dependency(self):
+        from hindsight_embed.daemon_embed_manager import DaemonEmbedManager
+        from memory_bench.memory.hindsight import _HindsightDaemonManager
+
+        with patch.object(
+            DaemonEmbedManager,
+            "_find_api_command",
+            return_value=["uvx", "hindsight-api@0.4.17"],
+        ):
+            command = _HindsightDaemonManager()._find_api_command()
+
+        self.assertEqual(
+            command[:6],
+            [
+                "uvx",
+                "--from",
+                "hindsight-api@0.4.17",
+                "--with",
+                "httpx[socks]>=0.27",
+                "python",
+            ],
+        )
+        self.assertEqual(Path(command[6]).name, "_hindsight_daemon.py")
+        self.assertEqual(command[7], "0.0")
+
+    def test_daemon_launcher_forces_evaluation_temperature(self):
+        try:
+            from memory_bench.memory._hindsight_daemon import (
+                _configure_evaluation_temperature,
+            )
+        except ImportError:
+            _configure_evaluation_temperature = None
+
+        self.assertIsNotNone(_configure_evaluation_temperature)
+
+        class RecordingProvider:
+            async def call(
+                self,
+                messages,
+                response_format=None,
+                max_completion_tokens=None,
+                temperature=None,
+            ):
+                return temperature
+
+            async def call_with_tools(
+                self,
+                messages,
+                tools,
+                max_completion_tokens=None,
+                temperature=None,
+            ):
+                return temperature
+
+        class OpenAICompatibleProvider:
+            def _supports_reasoning_model(self):
+                return True
+
+        _configure_evaluation_temperature(
+            RecordingProvider,
+            OpenAICompatibleProvider,
+            0.0,
+        )
+
+        temperature = asyncio.run(
+            RecordingProvider().call([], temperature=0.1)
+        )
+        self.assertEqual(temperature, 0.0)
+
+    def test_daemon_launcher_allows_deepseek_temperature(self):
+        try:
+            from memory_bench.memory._hindsight_daemon import (
+                _configure_evaluation_temperature,
+            )
+        except ImportError:
+            _configure_evaluation_temperature = None
+
+        self.assertIsNotNone(_configure_evaluation_temperature)
+
+        class RecordingProvider:
+            async def call(
+                self,
+                messages,
+                response_format=None,
+                max_completion_tokens=None,
+                temperature=None,
+            ):
+                return temperature
+
+            async def call_with_tools(
+                self,
+                messages,
+                tools,
+                max_completion_tokens=None,
+                temperature=None,
+            ):
+                return temperature
+
+        class OpenAICompatibleProvider:
+            def __init__(self, model):
+                self.model = model
+
+            def _supports_reasoning_model(self):
+                return True
+
+        _configure_evaluation_temperature(
+            RecordingProvider,
+            OpenAICompatibleProvider,
+            0.0,
+        )
+
+        self.assertFalse(
+            OpenAICompatibleProvider("deepseek-v4-flash")._supports_reasoning_model()
+        )
+        self.assertTrue(
+            OpenAICompatibleProvider("gpt-5")._supports_reasoning_model()
+        )
+
+    def test_daemon_launcher_forces_tool_call_temperature(self):
+        from memory_bench.memory._hindsight_daemon import (
+            _configure_evaluation_temperature,
+        )
+
+        class RecordingProvider:
+            async def call(
+                self,
+                messages,
+                response_format=None,
+                max_completion_tokens=None,
+                temperature=None,
+            ):
+                return temperature
+
+            async def call_with_tools(
+                self,
+                messages,
+                tools,
+                max_completion_tokens=None,
+                temperature=None,
+            ):
+                return temperature
+
+        class OpenAICompatibleProvider:
+            def _supports_reasoning_model(self):
+                return False
+
+        _configure_evaluation_temperature(
+            RecordingProvider,
+            OpenAICompatibleProvider,
+            0.0,
+        )
+
+        provider = RecordingProvider()
+        observed = (
+            asyncio.run(provider.call_with_tools([], [])),
+            asyncio.run(provider.call_with_tools([], [], temperature=0.7)),
+            asyncio.run(provider.call_with_tools([], [], None, 0.7)),
+        )
+        self.assertEqual(observed, (0.0, 0.0, 0.0))
+
+    def test_profile_changes_with_daemon_launcher_version(self):
+        from memory_bench.memory.hindsight import _hindsight_profile
+
+        config = {
+            "llm_provider": "openai",
+            "llm_model": "deepseek-v4-flash",
+            "llm_api_key": "test-key",
+            "llm_base_url": "https://deepseek.example/v1",
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"HINDSIGHT_EMBED_API_VERSION": "0.4.17"},
+                clear=True,
+            ),
+            patch(
+                "memory_bench.memory.hindsight.HINDSIGHT_DAEMON_LAUNCHER_VERSION",
+                1,
+                create=True,
+            ),
+        ):
+            old_profile = _hindsight_profile("longmemeval-s", config)
+        with (
+            patch.dict(
+                os.environ,
+                {"HINDSIGHT_EMBED_API_VERSION": "0.4.17"},
+                clear=True,
+            ),
+            patch(
+                "memory_bench.memory.hindsight.HINDSIGHT_DAEMON_LAUNCHER_VERSION",
+                2,
+                create=True,
+            ),
+        ):
+            new_profile = _hindsight_profile("longmemeval-s", config)
+
+        self.assertNotEqual(old_profile, new_profile)
+
+    def test_profile_changes_with_evaluation_temperature(self):
+        from memory_bench.memory.hindsight import _hindsight_profile
+
+        config = {
+            "llm_provider": "openai",
+            "llm_model": "deepseek-v4-flash",
+            "llm_api_key": "test-key",
+            "llm_base_url": "https://deepseek.example/v1",
+        }
+        with (
+            patch.dict(
+                os.environ,
+                {"HINDSIGHT_EMBED_API_VERSION": "0.4.17"},
+                clear=True,
+            ),
+            patch("memory_bench.memory.hindsight.EVALUATION_TEMPERATURE", 0.0),
+        ):
+            zero_profile = _hindsight_profile("longmemeval-s", config)
+        with (
+            patch.dict(
+                os.environ,
+                {"HINDSIGHT_EMBED_API_VERSION": "0.4.17"},
+                clear=True,
+            ),
+            patch("memory_bench.memory.hindsight.EVALUATION_TEMPERATURE", 0.1),
+        ):
+            nonzero_profile = _hindsight_profile("longmemeval-s", config)
+
+        self.assertNotEqual(zero_profile, nonzero_profile)
+
     def test_deepseek_uses_openai_chat_completions_adapter(self):
         from memory_bench.memory.hindsight import _hindsight_llm_config
 
