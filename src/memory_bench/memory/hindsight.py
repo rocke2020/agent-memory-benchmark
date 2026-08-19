@@ -320,15 +320,11 @@ class _HindsightBase(MemoryProvider):
     # ── Sync ingest (embedded) ────────────────────────────────────────────────
 
     def ingest(self, documents: list[Document]) -> None:
-        from hindsight_client.hindsight_client import _run_async
-        from hindsight_client_api.api.operations_api import OperationsApi
-
         if not self._per_unit:
             self._create_bank(self._bank_id)
 
         _BATCH_SIZE = 20
         created: set[str] = set()
-        operation_ids: list[tuple[str, str]] = []
 
         # Collect all items across all documents first, grouped by bank_id,
         # then batch across documents so fewer (larger) operations are created.
@@ -360,7 +356,7 @@ class _HindsightBase(MemoryProvider):
                         self._client.retain_batch(
                             bank_id=bank_id,
                             items=batch,
-                            retain_async=True,
+                            retain_async=False,
                         )
                         break
                     except Exception as e:
@@ -509,16 +505,18 @@ class HindsightMemoryProvider(_HindsightBase):
         _ = self._client.url
 
     def ingest(self, documents: list[Document]) -> None:
+        from hindsight_client.hindsight_client import _run_async
+
         super().ingest(documents)
         # After sync ingest, _run_async in the hindsight client creates a temporary event loop
-        # that may leave an aiohttp session bound to it. Reset so the next async_retrieve
-        # (called from asyncio.run()) creates a fresh session on the correct loop.
+        # with an aiohttp session bound to it. Close the session on that same loop before
+        # async_retrieve creates a fresh session on the main event loop.
+        rc = self._client._memory_api.api_client.rest_client
         try:
-            rc = self._client._memory_api.api_client.rest_client
+            _run_async(rc.close())
+        finally:
             rc._pool_manager = None
             rc._retry_client = None
-        except Exception:
-            pass
 
     async def async_ingest(self, documents: list[Document]) -> None:
         # Close any existing aiohttp session BEFORE running ingest in a thread.
@@ -536,14 +534,6 @@ class HindsightMemoryProvider(_HindsightBase):
         except Exception:
             pass
         await asyncio.to_thread(self.ingest, documents)
-        # Reset again after ingest so the next arecall creates a fresh session
-        # in the correct (main) event loop rather than reusing the thread's session.
-        try:
-            rc = self._client._memory_api.api_client.rest_client
-            rc._pool_manager = None
-            rc._retry_client = None
-        except Exception:
-            pass
 
     async def async_retrieve(self, query: str, k: int = 10, user_id: str | None = None, query_timestamp: str | None = None):
         kwargs = self._recall_kwargs(query, user_id, query_timestamp)

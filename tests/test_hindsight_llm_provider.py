@@ -2,10 +2,80 @@ import asyncio
 import os
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, PropertyMock, patch
 
 
 class HindsightLlmProviderTest(unittest.TestCase):
+    def test_embedded_ingest_requests_synchronous_retention(self):
+        from hindsight_client_api.configuration import Configuration
+        from hindsight_client_api.rest import RESTClientObject
+        from memory_bench.memory.hindsight import HindsightMemoryProvider
+        from memory_bench.models import Document
+
+        retain_calls = []
+        rest_client = RESTClientObject(
+            Configuration(host="http://127.0.0.1:9460")
+        )
+
+        class RecordingClient:
+            banks = SimpleNamespace(delete=lambda **kwargs: None)
+            _memory_api = SimpleNamespace(
+                api_client=SimpleNamespace(rest_client=rest_client)
+            )
+
+            def create_bank(self, **kwargs):
+                pass
+
+            def retain_batch(self, **kwargs):
+                retain_calls.append(kwargs)
+
+        provider = object.__new__(HindsightMemoryProvider)
+        provider._client = RecordingClient()
+        provider._bank_id = "test-bank"
+        provider._per_unit = False
+        provider._default_user_id = "test-user"
+
+        provider.ingest([Document(id="document-1", content="A memory")])
+
+        self.assertFalse(retain_calls[0]["retain_async"])
+
+    def test_embedded_async_ingest_closes_thread_http_session(self):
+        from hindsight_client.hindsight_client import _run_async
+        from hindsight_client_api.configuration import Configuration
+        from hindsight_client_api.rest import RESTClientObject
+        from memory_bench.memory.hindsight import (
+            HindsightMemoryProvider,
+            _HindsightBase,
+        )
+
+        rest_client = RESTClientObject(
+            Configuration(host="http://127.0.0.1:9460")
+        )
+        provider = object.__new__(HindsightMemoryProvider)
+        provider._client = SimpleNamespace(
+            _memory_api=SimpleNamespace(
+                api_client=SimpleNamespace(rest_client=rest_client)
+            )
+        )
+        created_sessions = []
+
+        def create_thread_session(_provider, _documents):
+            async def create():
+                rest_client._ensure_session()
+                created_sessions.append(rest_client._pool_manager)
+
+            _run_async(create())
+
+        try:
+            with patch.object(_HindsightBase, "ingest", create_thread_session):
+                asyncio.run(provider.async_ingest([]))
+
+            self.assertTrue(created_sessions[0].closed)
+        finally:
+            if created_sessions and not created_sessions[0].closed:
+                asyncio.run(created_sessions[0].close())
+
     def test_prepare_propagates_daemon_startup_failure(self):
         from memory_bench.memory.hindsight import (
             HindsightMemoryProvider,

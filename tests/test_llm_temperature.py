@@ -27,6 +27,22 @@ class RecordingCompletions:
         )
 
 
+class SequencedCompletions:
+    def __init__(self, contents):
+        self.contents = iter(contents)
+        self.requests = []
+
+    def create(self, **kwargs):
+        self.requests.append(kwargs)
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content=next(self.contents))
+                )
+            ]
+        )
+
+
 class RecordingGeminiModels:
     def __init__(self):
         self.request = None
@@ -64,6 +80,34 @@ class LlmTemperatureTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "answer"):
             llm.generate("test prompt", _SCHEMA)
+
+    def test_deepseek_retries_json_missing_a_required_field(self):
+        judge_schema = Schema(
+            properties={
+                "correct": {"type": "boolean"},
+                "reason": {"type": "string"},
+            },
+            required=["correct", "reason"],
+        )
+        completions = SequencedCompletions(
+            [
+                '{"correct": true}',
+                '{"correct": true, "reason": "The answer matches."}',
+            ]
+        )
+        llm = OpenAILLM.__new__(OpenAILLM)
+        llm._client = SimpleNamespace(
+            chat=SimpleNamespace(completions=completions)
+        )
+        llm._model = "deepseek-v4-flash"
+
+        result = llm.generate("test prompt", judge_schema)
+
+        self.assertEqual(
+            result,
+            {"correct": True, "reason": "The answer matches."},
+        )
+        self.assertEqual(len(completions.requests), 2)
 
     def test_openai_client_constructs_with_lowercase_socks_proxy(self):
         with patch.dict(

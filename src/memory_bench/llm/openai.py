@@ -109,8 +109,6 @@ class OpenAILLM(LLM):
                     temperature=EVALUATION_TEMPERATURE,
                     response_format=response_format,
                 )
-                text = response.choices[0].message.content
-                return _validate_json_response(json.loads(text), schema)
             except Exception as e:
                 last_exc = e
                 msg = str(e)
@@ -120,4 +118,22 @@ class OpenAILLM(LLM):
                         delay *= 2
                         continue
                 raise
+            text = response.choices[0].message.content
+            try:
+                return _validate_json_response(json.loads(text), schema)
+            except (TypeError, ValueError) as e:
+                last_exc = e
+                if not _is_deepseek_model(self._model) or attempt >= _MAX_RETRIES - 1:
+                    raise
+                messages = [
+                    *messages,
+                    {"role": "assistant", "content": text or ""},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"The previous response failed JSON Schema validation: {e}. "
+                            "Return a corrected JSON object containing every required field."
+                        ),
+                    },
+                ]
         raise RuntimeError(f"OpenAI request failed after {_MAX_RETRIES} retries: {last_exc}")
