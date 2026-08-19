@@ -76,6 +76,56 @@ class HindsightLlmProviderTest(unittest.TestCase):
             if created_sessions and not created_sessions[0].closed:
                 asyncio.run(created_sessions[0].close())
 
+    def test_embedded_async_ingest_resets_session_once_across_calls(self):
+        # Concurrent units share the runner loop's live session: the one-time
+        # reset that clears prepare()'s foreign-loop session must never run
+        # again — a per-call reset closes the live session under in-flight
+        # retains/recalls and kills them.
+        from memory_bench.memory.hindsight import HindsightMemoryProvider
+        from memory_bench.models import Document
+
+        closes = []
+
+        class FakeSession:
+            async def close(self):
+                closes.append(1)
+
+        class AsyncRecordingClient:
+            _memory_api = SimpleNamespace(
+                api_client=SimpleNamespace(
+                    rest_client=SimpleNamespace(
+                        _pool_manager=FakeSession(), _retry_client=None
+                    )
+                )
+            )
+
+            async def adelete_bank(self, **kwargs):
+                pass
+
+            async def acreate_bank(self, **kwargs):
+                pass
+
+            async def aretain_batch(self, **kwargs):
+                await asyncio.sleep(0.02)
+
+        provider = object.__new__(HindsightMemoryProvider)
+        provider._client = AsyncRecordingClient()
+        provider._bank_id = "test-bank"
+        provider._per_unit = False
+        provider._default_user_id = "test-user"
+
+        documents = [Document(id=f"document-{i}", content=f"A memory {i}") for i in range(4)]
+
+        async def run_concurrent():
+            await asyncio.gather(
+                provider.async_ingest(documents),
+                provider.async_ingest(documents),
+            )
+
+        asyncio.run(run_concurrent())
+
+        self.assertEqual(len(closes), 1)
+
     def test_embedded_async_ingest_submits_one_bank_batches_in_order(self):
         from memory_bench.memory.hindsight import HindsightMemoryProvider
         from memory_bench.models import Document

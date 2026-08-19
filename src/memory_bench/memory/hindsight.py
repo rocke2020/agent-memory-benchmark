@@ -535,6 +535,15 @@ class HindsightMemoryProvider(_HindsightBase):
     # overlapping async_ingest calls for consecutive units; the daemon's own
     # backpressure semaphore (5 concurrent retain operations) caps the total.
     _ASYNC_BATCH_SIZE = 8
+    # The wrapped Hindsight client defaults to a 300s HTTP timeout — a retain
+    # batch queued behind up to 4 other banks' operations can exceed it, so the
+    # timeout is raised to cover daemon-side queueing.
+    _RETAIN_HTTP_TIMEOUT = 900.0
+    # Whether async_ingest already dropped the foreign-loop aiohttp session
+    # prepare() may leave behind. The reset must run once per provider: every
+    # async_ingest call shares one live session on the runner loop, and closing
+    # it mid-run kills in-flight retains/recalls from concurrent units.
+    _async_session_reset_done = False
 
     async def async_ingest(self, documents: list[Document]) -> None:
         """Ordered retain ingestion on the caller's event loop.
@@ -544,18 +553,28 @@ class HindsightMemoryProvider(_HindsightBase):
         independently of each other, which is where the wall-clock win comes
         from. Runs fully async — no thread + session-recreate juggling.
         """
-        # prepare() may leave an aiohttp session bound to a temporary loop;
-        # drop it so the first aretain_batch creates a fresh one on this loop.
-        try:
-            rc = self._client._memory_api.api_client.rest_client
-            if rc._pool_manager is not None:
-                await rc._pool_manager.close()
-            if rc._retry_client is not None:
-                await rc._retry_client.close()
-            rc._pool_manager = None
-            rc._retry_client = None
-        except Exception:
-            pass
+        # prepare() may leave an aiohttp session bound to a temporary loop; drop
+        # it once, before the first aretain_batch on this loop — never per call.
+        # The flag is set before the closing await so concurrent first calls
+        # cannot double-reset.
+        if not self._async_session_reset_done:
+            self._async_session_reset_done = True
+            try:
+                rc = self._client._memory_api.api_client.rest_client
+                if rc._pool_manager is not None:
+                    await rc._pool_manager.close()
+                if rc._retry_client is not None:
+                    await rc._retry_client.close()
+                rc._pool_manager = None
+                rc._retry_client = None
+            except Exception:
+                pass
+
+        # Re-assert on every call: HindsightEmbedded builds its wrapped client
+        # with the default 300s timeout and recreates it if the daemon restarts.
+        inner_client = getattr(self._client, "_client", None)
+        if inner_client is not None:
+            inner_client._timeout = self._RETAIN_HTTP_TIMEOUT
 
         if not self._per_unit:
             await self._acreate_bank(self._client, self._bank_id)
@@ -580,31 +599,50 @@ class HindsightMemoryProvider(_HindsightBase):
                 batches_by_bank[bank_id] = bank_batches
 
         async def _retain_chain(bank_id: str, bank_batches: list[list[dict]]) -> None:
+            import logging
+            logger = logging.getLogger(__name__)
             for batch in bank_batches:
                 for attempt in range(3):
                     try:
-                        # Inline completion (retain_async=False); the timeout must
-                        # cover daemon-side queueing behind the other banks' ops.
+                        # Inline completion (retain_async=False): the HTTP return
+                        # means extraction finished. Daemon-side queue wait counts
+                        # against the raised client timeout.
                         await asyncio.wait_for(
                             self._client.aretain_batch(
                                 bank_id=bank_id,
                                 items=batch,
                                 retain_async=False,
                             ),
-                            timeout=900,
+                            timeout=self._RETAIN_HTTP_TIMEOUT + 60,
+                        )
+                        break
+                    except (asyncio.TimeoutError, TimeoutError):
+                        # Timed out client-side; the daemon op may still be running
+                        # or already completed server-side. Retry — a completed op
+                        # comes back as a duplicate-key error, which skips cleanly.
+                        if attempt < 2:
+                            await asyncio.sleep(10)
+                            continue
+                        logger.warning(
+                            f"aretain_batch timed out 3x (skipping batch): bank={bank_id} "
+                            f"docs={[i.get('document_id') for i in batch]}"
                         )
                         break
                     except Exception as e:
                         err = str(e)
                         etype = type(e).__name__
                         if self._is_ignorable_retain_error(etype, err):
+                            # Skipped batches mean missing facts — always visible in the log.
+                            logger.warning(
+                                f"aretain_batch skipped batch (ignorable error): bank={bank_id} "
+                                f"{etype}: {err[:200]}"
+                            )
                             break
                         if attempt < 2:
                             await asyncio.sleep(10)
                         else:
                             # Last resort: skip any unrecognised transient error rather than killing the run.
-                            import logging
-                            logging.getLogger(__name__).warning(
+                            logger.warning(
                                 f"aretain_batch unhandled error (skipping batch): {etype}: {err[:200]}"
                             )
                             break
