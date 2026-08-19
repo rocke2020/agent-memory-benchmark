@@ -40,14 +40,11 @@ class HindsightLlmProviderTest(unittest.TestCase):
 
         self.assertFalse(retain_calls[0]["retain_async"])
 
-    def test_embedded_async_ingest_closes_thread_http_session(self):
+    def test_embedded_async_ingest_resets_foreign_loop_session(self):
         from hindsight_client.hindsight_client import _run_async
         from hindsight_client_api.configuration import Configuration
         from hindsight_client_api.rest import RESTClientObject
-        from memory_bench.memory.hindsight import (
-            HindsightMemoryProvider,
-            _HindsightBase,
-        )
+        from memory_bench.memory.hindsight import HindsightMemoryProvider
 
         rest_client = RESTClientObject(
             Configuration(host="http://127.0.0.1:9460")
@@ -58,9 +55,10 @@ class HindsightLlmProviderTest(unittest.TestCase):
                 api_client=SimpleNamespace(rest_client=rest_client)
             )
         )
+        provider._per_unit = True
         created_sessions = []
 
-        def create_thread_session(_provider, _documents):
+        def prepare_leaves_foreign_session():
             async def create():
                 rest_client._ensure_session()
                 created_sessions.append(rest_client._pool_manager)
@@ -68,13 +66,65 @@ class HindsightLlmProviderTest(unittest.TestCase):
             _run_async(create())
 
         try:
-            with patch.object(_HindsightBase, "ingest", create_thread_session):
-                asyncio.run(provider.async_ingest([]))
+            prepare_leaves_foreign_session()
+            asyncio.run(provider.async_ingest([]))
 
             self.assertTrue(created_sessions[0].closed)
+            self.assertIsNone(rest_client._pool_manager)
+            self.assertIsNone(rest_client._retry_client)
         finally:
             if created_sessions and not created_sessions[0].closed:
                 asyncio.run(created_sessions[0].close())
+
+    def test_embedded_async_ingest_submits_one_bank_batches_in_order(self):
+        from memory_bench.memory.hindsight import HindsightMemoryProvider
+        from memory_bench.models import Document
+
+        retain_calls = []
+        active = 0
+        peak = 0
+
+        class AsyncRecordingClient:
+            _memory_api = SimpleNamespace(
+                api_client=SimpleNamespace(
+                    rest_client=SimpleNamespace(_pool_manager=None, _retry_client=None)
+                )
+            )
+
+            async def adelete_bank(self, **kwargs):
+                pass
+
+            async def acreate_bank(self, **kwargs):
+                pass
+
+            async def aretain_batch(self, **kwargs):
+                nonlocal active, peak
+                retain_calls.append(kwargs)
+                active += 1
+                peak = max(peak, active)
+                await asyncio.sleep(0.05)
+                active -= 1
+
+        provider = object.__new__(HindsightMemoryProvider)
+        provider._client = AsyncRecordingClient()
+        provider._bank_id = "test-bank"
+        provider._per_unit = False
+        provider._default_user_id = "test-user"
+
+        documents = [
+            Document(id=f"document-{i}", content=f"A memory {i}") for i in range(12)
+        ]
+        asyncio.run(provider.async_ingest(documents))
+
+        # 12 docs with _ASYNC_BATCH_SIZE=8 → 2 batches, strictly sequential and
+        # in dataset order within the bank: KU/TR questions depend on facts
+        # landing in time order, so no intra-bank concurrency is allowed.
+        self.assertEqual(len(retain_calls), 2)
+        self.assertEqual(peak, 1)
+        submitted_ids = [i["document_id"] for call in retain_calls for i in call["items"]]
+        self.assertEqual(submitted_ids, [f"document-{i}" for i in range(12)])
+        for call in retain_calls:
+            self.assertFalse(call["retain_async"])
 
     def test_prepare_propagates_daemon_startup_failure(self):
         from memory_bench.memory.hindsight import (

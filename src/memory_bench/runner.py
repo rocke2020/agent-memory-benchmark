@@ -11,6 +11,13 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
 
 _CONCURRENCY = 4
+# How many units ahead of the current one ingestion is started (unit-sequential
+# mode only). Ingestion is the wall-clock bottleneck; prefetching keeps memory
+# retain slots busy while the current unit's queries are answered. Each unit's
+# ingestion is internally sequential (one bank, time-ordered), so this window
+# supplies the cross-bank concurrency — 4 ahead + the current unit keeps the
+# daemon's 5 retain slots busy.
+_INGEST_PREFETCH_UNITS = 4
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -259,16 +266,32 @@ class EvalRunner:
                 sem = asyncio.Semaphore(concurrency)
                 all_results = []
 
-                for unit_id, unit_docs in docs_by_unit.items():
+                for unit_id, _ in docs_by_unit.items():
                     if unit_id in already_done_units:
                         unit_prev = _prev_by_unit.get(unit_id, [])
                         all_results.extend(unit_prev)
                         progress.advance(task_id, len(unit_prev))
-                        continue
 
+                # Ingestion dominates wall-clock time; keep _INGEST_PREFETCH_UNITS
+                # ahead so the memory backend's retain slots stay busy across the
+                # per-unit answer barrier. A unit's queries still run only after
+                # that unit's own ingestion completes, so recall isolation is unchanged.
+                pending_units = [
+                    (uid, udocs) for uid, udocs in docs_by_unit.items()
+                    if uid not in already_done_units
+                ]
+                ingest_tasks: dict[str, asyncio.Task] = {}
+
+                for idx, (unit_id, unit_docs) in enumerate(pending_units):
                     if not skip_ingestion:
+                        if unit_id not in ingest_tasks:
+                            ingest_tasks[unit_id] = asyncio.create_task(memory.async_ingest(unit_docs))
+                        for j in range(idx + 1, min(idx + 1 + _INGEST_PREFETCH_UNITS, len(pending_units))):
+                            nid, ndocs = pending_units[j]
+                            if nid not in ingest_tasks:
+                                ingest_tasks[nid] = asyncio.create_task(memory.async_ingest(ndocs))
                         t0 = time.perf_counter()
-                        await memory.async_ingest(unit_docs)
+                        await ingest_tasks[unit_id]
                         ingestion_ms += (time.perf_counter() - t0) * 1000
                         ingested_docs_count += len(unit_docs)
 

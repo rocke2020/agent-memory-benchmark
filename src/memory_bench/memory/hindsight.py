@@ -317,6 +317,29 @@ class _HindsightBase(MemoryProvider):
         return [{**base, "content": content, "document_id": doc.id,
                  "metadata": {"doc_id": doc.id}}]
 
+    # ── Retain helpers (shared by sync and async ingest) ──────────────────────
+
+    @staticmethod
+    def _dedupe_items_by_document_id(items: list[dict]) -> list[dict]:
+        """Drop repeat document_ids — the dataset may have sessions with identical IDs."""
+        seen_doc_ids: set[str] = set()
+        unique_items: list[dict] = []
+        for item in items:
+            did = item.get("document_id")
+            if did is None or did not in seen_doc_ids:
+                unique_items.append(item)
+                if did is not None:
+                    seen_doc_ids.add(did)
+        return unique_items
+
+    @staticmethod
+    def _is_ignorable_retain_error(etype: str, err: str) -> bool:
+        # Already ingested / duplicate / FK race / LLM/timeout failure / daemon down.
+        return ("duplicate key" in err or "duplicate document_ids" in err
+                or "violates foreign key constraint" in err
+                or "empty response" in err or "Cannot connect" in err
+                or "Timeout" in etype or "Timeout" in err)
+
     # ── Sync ingest (embedded) ────────────────────────────────────────────────
 
     def ingest(self, documents: list[Document]) -> None:
@@ -338,19 +361,10 @@ class _HindsightBase(MemoryProvider):
             items_by_bank.setdefault(bank_id, []).extend(self._doc_to_items(doc))
 
         for bank_id, all_items in items_by_bank.items():
-            # Deduplicate by document_id — the dataset may have sessions with identical IDs.
-            seen_doc_ids: set[str] = set()
-            unique_items: list[dict] = []
-            for item in all_items:
-                did = item.get("document_id")
-                if did is None or did not in seen_doc_ids:
-                    unique_items.append(item)
-                    if did is not None:
-                        seen_doc_ids.add(did)
-            all_items = unique_items
+            unique_items = self._dedupe_items_by_document_id(all_items)
 
-            for i in range(0, len(all_items), _BATCH_SIZE):
-                batch = all_items[i:i + _BATCH_SIZE]
+            for i in range(0, len(unique_items), _BATCH_SIZE):
+                batch = unique_items[i:i + _BATCH_SIZE]
                 for attempt in range(3):
                     try:
                         self._client.retain_batch(
@@ -362,11 +376,7 @@ class _HindsightBase(MemoryProvider):
                     except Exception as e:
                         err = str(e)
                         etype = type(e).__name__
-                        if ("duplicate key" in err or "duplicate document_ids" in err
-                                or "violates foreign key constraint" in err
-                                or "empty response" in err or "Cannot connect" in err
-                                or "Timeout" in etype or "Timeout" in err):
-                            # Skip: already ingested / duplicate / FK race / LLM/timeout failure / daemon down.
+                        if self._is_ignorable_retain_error(etype, err):
                             break
                         if attempt < 2:
                             time.sleep(10)
@@ -518,11 +528,24 @@ class HindsightMemoryProvider(_HindsightBase):
             rc._pool_manager = None
             rc._retry_client = None
 
+    # Batches within one bank are submitted strictly in dataset time order:
+    # LongMemEval knowledge-update and temporal-reasoning questions depend on a
+    # session's facts landing in order inside that question's bank. Concurrency
+    # happens only across banks (different questions), driven by the runner
+    # overlapping async_ingest calls for consecutive units; the daemon's own
+    # backpressure semaphore (5 concurrent retain operations) caps the total.
+    _ASYNC_BATCH_SIZE = 8
+
     async def async_ingest(self, documents: list[Document]) -> None:
-        # Close any existing aiohttp session BEFORE running ingest in a thread.
-        # ingest → retain_batch → _run_async creates a fresh event loop in the thread;
-        # if an open session bound to the main loop exists, its TimerContext.__enter__
-        # calls asyncio.current_task(loop=main_loop) from the thread → None → RuntimeError.
+        """Ordered retain ingestion on the caller's event loop.
+
+        Each bank's batches form a FIFO chain — one in-flight retain operation
+        per bank, in dataset order. Banks (one per unit in per-unit mode) run
+        independently of each other, which is where the wall-clock win comes
+        from. Runs fully async — no thread + session-recreate juggling.
+        """
+        # prepare() may leave an aiohttp session bound to a temporary loop;
+        # drop it so the first aretain_batch creates a fresh one on this loop.
         try:
             rc = self._client._memory_api.api_client.rest_client
             if rc._pool_manager is not None:
@@ -533,7 +556,63 @@ class HindsightMemoryProvider(_HindsightBase):
             rc._retry_client = None
         except Exception:
             pass
-        await asyncio.to_thread(self.ingest, documents)
+
+        if not self._per_unit:
+            await self._acreate_bank(self._client, self._bank_id)
+
+        created: set[str] = set()
+        items_by_bank: dict[str, list[dict]] = {}
+        for doc in documents:
+            bank_id = self._bank_id_for(doc.user_id)
+            if self._per_unit and bank_id not in created:
+                await self._acreate_bank(self._client, bank_id)
+                created.add(bank_id)
+            items_by_bank.setdefault(bank_id, []).extend(self._doc_to_items(doc))
+
+        batches_by_bank: dict[str, list[list[dict]]] = {}
+        for bank_id, all_items in items_by_bank.items():
+            unique_items = self._dedupe_items_by_document_id(all_items)
+            bank_batches = [
+                unique_items[i:i + self._ASYNC_BATCH_SIZE]
+                for i in range(0, len(unique_items), self._ASYNC_BATCH_SIZE)
+            ]
+            if bank_batches:
+                batches_by_bank[bank_id] = bank_batches
+
+        async def _retain_chain(bank_id: str, bank_batches: list[list[dict]]) -> None:
+            for batch in bank_batches:
+                for attempt in range(3):
+                    try:
+                        # Inline completion (retain_async=False); the timeout must
+                        # cover daemon-side queueing behind the other banks' ops.
+                        await asyncio.wait_for(
+                            self._client.aretain_batch(
+                                bank_id=bank_id,
+                                items=batch,
+                                retain_async=False,
+                            ),
+                            timeout=900,
+                        )
+                        break
+                    except Exception as e:
+                        err = str(e)
+                        etype = type(e).__name__
+                        if self._is_ignorable_retain_error(etype, err):
+                            break
+                        if attempt < 2:
+                            await asyncio.sleep(10)
+                        else:
+                            # Last resort: skip any unrecognised transient error rather than killing the run.
+                            import logging
+                            logging.getLogger(__name__).warning(
+                                f"aretain_batch unhandled error (skipping batch): {etype}: {err[:200]}"
+                            )
+                            break
+
+        await asyncio.gather(*(
+            _retain_chain(bank_id, bank_batches)
+            for bank_id, bank_batches in batches_by_bank.items()
+        ))
 
     async def async_retrieve(self, query: str, k: int = 10, user_id: str | None = None, query_timestamp: str | None = None):
         kwargs = self._recall_kwargs(query, user_id, query_timestamp)
