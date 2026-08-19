@@ -126,6 +126,43 @@ class HindsightLlmProviderTest(unittest.TestCase):
 
         self.assertEqual(len(closes), 1)
 
+    def test_embedded_shared_bank_recreate_only_once(self):
+        # Shared-bank (non-per-unit) mode wipes the bank on every recreate, so
+        # a second ingest call must skip the delete+create instead of silently
+        # discarding the first call's facts.
+        from memory_bench.memory.hindsight import HindsightMemoryProvider
+        from memory_bench.models import Document
+
+        bank_ops = []
+
+        class OnceClient:
+            _memory_api = SimpleNamespace(
+                api_client=SimpleNamespace(
+                    rest_client=SimpleNamespace(_pool_manager=None, _retry_client=None)
+                )
+            )
+
+            async def adelete_bank(self, **kwargs):
+                bank_ops.append("delete")
+
+            async def acreate_bank(self, **kwargs):
+                bank_ops.append("create")
+
+            async def aretain_batch(self, **kwargs):
+                bank_ops.append("retain")
+
+        provider = object.__new__(HindsightMemoryProvider)
+        provider._client = OnceClient()
+        provider._bank_id = "test-bank"
+        provider._per_unit = False
+        provider._default_user_id = "test-user"
+
+        documents = [Document(id="document-1", content="A memory")]
+        asyncio.run(provider.async_ingest(documents))
+        asyncio.run(provider.async_ingest(documents))
+
+        self.assertEqual(bank_ops, ["delete", "create", "retain", "retain"])
+
     def test_embedded_async_ingest_submits_one_bank_batches_in_order(self):
         from memory_bench.memory.hindsight import HindsightMemoryProvider
         from memory_bench.models import Document

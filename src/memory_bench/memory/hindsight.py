@@ -342,8 +342,32 @@ class _HindsightBase(MemoryProvider):
 
     # ── Sync ingest (embedded) ────────────────────────────────────────────────
 
+    # Shared-bank (non-per-unit) mode must ingest exactly once per provider
+    # lifetime: every ingest call deletes and recreates the bank, so a second
+    # call would silently wipe the first call's facts. Latched so later calls
+    # skip the destructive recreate with a loud warning instead.
+    _shared_bank_created = False
+
+    def _claim_shared_bank_creation(self) -> bool:
+        """Allow the shared bank's destructive (re)create exactly once.
+
+        The latch is set before any await, so concurrent first calls cannot
+        both win. Per-unit mode never uses the shared bank (callers check
+        _per_unit before calling this).
+        """
+        if self._shared_bank_created:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Shared bank {self._bank_id} already ingested this run; skipping "
+                "destructive recreate so earlier facts survive (shared-bank mode "
+                "expects exactly one ingest call)."
+            )
+            return False
+        self._shared_bank_created = True
+        return True
+
     def ingest(self, documents: list[Document]) -> None:
-        if not self._per_unit:
+        if not self._per_unit and self._claim_shared_bank_creation():
             self._create_bank(self._bank_id)
 
         _BATCH_SIZE = 20
@@ -552,6 +576,10 @@ class HindsightMemoryProvider(_HindsightBase):
         per bank, in dataset order. Banks (one per unit in per-unit mode) run
         independently of each other, which is where the wall-clock win comes
         from. Runs fully async — no thread + session-recreate juggling.
+
+        Contract: shared-bank (non-per-unit) mode must ingest exactly once per
+        provider lifetime — the bank is deleted and recreated on the first
+        call, and later calls skip that destructive recreate with a warning.
         """
         # prepare() may leave an aiohttp session bound to a temporary loop; drop
         # it once, before the first aretain_batch on this loop — never per call.
@@ -576,7 +604,7 @@ class HindsightMemoryProvider(_HindsightBase):
         if inner_client is not None:
             inner_client._timeout = self._RETAIN_HTTP_TIMEOUT
 
-        if not self._per_unit:
+        if not self._per_unit and self._claim_shared_bank_creation():
             await self._acreate_bank(self._client, self._bank_id)
 
         created: set[str] = set()
@@ -696,7 +724,7 @@ class HindsightCloudMemoryProvider(_HindsightBase):
     async def async_ingest(self, documents: list[Document]) -> None:
         client = self._get_async_client()
 
-        if not self._per_unit:
+        if not self._per_unit and self._claim_shared_bank_creation():
             await self._acreate_bank(client, self._bank_id)
 
         _BATCH_SIZE = 20
