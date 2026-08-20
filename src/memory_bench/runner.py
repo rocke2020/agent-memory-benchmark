@@ -230,10 +230,17 @@ class EvalRunner:
 
             # Determine which units are already done (have results in previous run)
             already_done_units: set[str] = set()
+            unit_id_by_query_id = {q.id: q.user_id for q in queries if q.user_id}
+
+            def _result_unit_id(result: dict) -> str | None:
+                unit_id = unit_id_by_query_id.get(result.get("query_id"))
+                meta = result.get("meta", {})
+                return unit_id or meta.get("sample_id") or meta.get("user_id")
+
             if skip_ingested:
                 prev = self._load_previous(dataset.name, split, effective_name, mode.name)
                 for r in prev.get("results", []):
-                    uid = r.get("meta", {}).get("sample_id") or r.get("meta", {}).get("user_id")
+                    uid = _result_unit_id(r)
                     if uid:
                         already_done_units.add(uid)
                 if already_done_units:
@@ -254,7 +261,7 @@ class EvalRunner:
                 import dataclasses
                 _qr_fields = {f.name for f in dataclasses.fields(QueryResult)}
                 for r in prev_data.get("results", []):
-                    uid = r.get("meta", {}).get("sample_id") or r.get("meta", {}).get("user_id")
+                    uid = _result_unit_id(r)
                     if uid in already_done_units:
                         _prev_by_unit.setdefault(uid, []).append(
                             QueryResult(**{k: v for k, v in r.items() if k in _qr_fields})

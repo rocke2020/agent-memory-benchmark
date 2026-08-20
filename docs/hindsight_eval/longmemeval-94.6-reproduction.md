@@ -299,6 +299,10 @@ For `118b2229`, the gold session contains the user's correct statement that the 
 
 The full evaluation is eligible for comparison with 94.6% only after all three earlier gates pass. It must evaluate all 500 questions with no limiting, oracle, skip-ingestion, or cached-context narrowing. Crash-resume via `--skip-ingested` is permitted — the published 94.6% artifact itself records a resumed invocation (Section 2), so a resumed rerun is not disqualified.
 
+No additional daemon-count flag or environment variable is required. This workflow uses **one** embedded Hindsight daemon, starting a new fingerprinted profile in the required fresh environment or reusing that profile during crash-resume; it does not use five daemon processes. The checked-in runner prefetches the next 4 question units; together with the current question, this keeps at most 5 independent bank-ingestion chains in flight, matching the pinned Hindsight v0.4.17 daemon's internal limit of 5 concurrent retain operations. Inside each question's bank, the Hindsight memory adapter awaits every retain batch before submitting the next batch, so that question's sessions are indexed sequentially in dataset order. Run the command below unchanged; do not launch five `omb` processes, because that is a different, unsupported topology rather than this run's cross-bank concurrency.
+
+The two checked-in controls are [`_INGEST_PREFETCH_UNITS = 4`](../../src/memory_bench/runner.py#L20) for cross-bank prefetch and the ordered retain loop in [`HindsightMemoryProvider.async_ingest()`](../../src/memory_bench/memory/hindsight.py#L548). The daemon-side limit is [hardcoded in the pinned Hindsight API](https://github.com/vectorize-io/hindsight/blob/2191654b1f9b454703916612fec57ce226c7746b/hindsight-api/hindsight_api/engine/memory_engine.py#L437-L440) rather than exposed by this benchmark as `--workers`, `--daemon-count`, or an `.env` setting.
+
 ```bash
 # Fresh start only; skip this guard when resuming — the partial output must stay in place.
 test ! -e outputs/longmemeval/hindsight-deepseek/rag/s.json
@@ -310,6 +314,32 @@ bash -o pipefail -c '
     --mode rag \
     --name hindsight-deepseek \
     2>&1 | tee run-artifacts/longmemeval-hindsight-deepseek.log
+'
+```
+
+```bash
+# resume: 1, --skip-ingested; 2, use a new log file
+bash -o pipefail -c '
+/usr/bin/time -p uv run omb run \
+    --dataset longmemeval \
+    --split s \
+    --memory hindsight \
+    --mode rag \
+    --name hindsight-deepseek \
+    --skip-ingested \
+    2>&1 | tee run-artifacts/longmemeval-hindsight-deepseek-resume-1.log
+'
+
+# If interrupted again, repeat: 1, --skip-ingested; 2, use a new log file
+bash -o pipefail -c '
+/usr/bin/time -p uv run omb run \
+    --dataset longmemeval \
+    --split s \
+    --memory hindsight \
+    --mode rag \
+    --name hindsight-deepseek \
+    --skip-ingested \
+    2>&1 | tee run-artifacts/longmemeval-hindsight-deepseek-resume-2.log
 '
 ```
 
