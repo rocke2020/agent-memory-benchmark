@@ -339,7 +339,7 @@ bash -o pipefail -c '
     --mode rag \
     --name hindsight-deepseek \
     --skip-ingested \
-    2>&1 | tee run-artifacts/longmemeval-hindsight-deepseek-resume-2.log
+    2>&1 | tee run-artifacts/longmemeval-hindsight-deepseek-resume-3.log
 '
 ```
 
