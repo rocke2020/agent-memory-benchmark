@@ -103,4 +103,4 @@ For published-score reproduction, retain the dataset's original `2` so results r
 - Reject answers that count the high-priority project as led, confuse causal `led to` with leadership, or promote planning and collective `we` to personal leadership without qualification.
 - Report the case as `gold-ambiguous`; do not attribute its failure solely to retrieval, answer-model quality, or judge quality.
 
-Related analysis: [LongMemEval Hindsight DeepSeek reproduction: official comparison](longmemeval-deepseek-official-comparison.md).
+Related analysis: [LongMemEval Hindsight DeepSeek reproduction summary](20260-0822/summary.md).
