@@ -1,0 +1,60 @@
+{
+  "dataset": "demo",
+  "split": "s",
+  "run_name": "reference-memory",
+  "memory_provider": "reference-memory",
+  "mode": "rag",
+  "oracle": false,
+  "total_queries": 3,
+  "correct": 2,
+  "accuracy": 0.6666666666666666,
+  "ingestion_time_ms": 1800.0,
+  "ingested_docs": 6,
+  "description": "Synthetic reference fixture",
+  "answer_llm": "demo:answer",
+  "judge_llm": "demo:judge",
+  "results": [
+    {
+      "query_id": "q1",
+      "query": "Question one?",
+      "answer": "Answer one",
+      "reasoning": "Reference reason one",
+      "context": "Reference context one",
+      "context_tokens": 90,
+      "retrieve_time_ms": 90.0,
+      "gold_answers": ["Answer one"],
+      "correct": true,
+      "judge_reason": "Matches",
+      "meta": {"question_type": "alpha"},
+      "category_axes": {"Question Type": ["alpha"]}
+    },
+    {
+      "query_id": "q2",
+      "query": "Question two?",
+      "answer": "Answer two",
+      "reasoning": "Reference reason two",
+      "context": "Reference context two",
+      "context_tokens": 190,
+      "retrieve_time_ms": 190.0,
+      "gold_answers": ["Answer two"],
+      "correct": true,
+      "judge_reason": "Matches",
+      "meta": {"question_type": "beta"},
+      "category_axes": {"Question Type": ["beta"]}
+    },
+    {
+      "query_id": "q3",
+      "query": "Question three?",
+      "answer": "Reference wrong answer",
+      "reasoning": "Reference reason three",
+      "context": "Reference context three",
+      "context_tokens": 290,
+      "retrieve_time_ms": 290.0,
+      "gold_answers": ["Answer three"],
+      "correct": false,
+      "judge_reason": "Does not match",
+      "meta": {"question_type": "alpha"},
+      "category_axes": {"Question Type": ["alpha"]}
+    }
+  ]
+}

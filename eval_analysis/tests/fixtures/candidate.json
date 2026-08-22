@@ -1,0 +1,63 @@
+{
+  "dataset": "demo",
+  "split": "s",
+  "run_name": "candidate-memory",
+  "memory_provider": "candidate-memory",
+  "mode": "rag",
+  "oracle": false,
+  "total_queries": 3,
+  "correct": 2,
+  "accuracy": 0.6666666666666666,
+  "ingestion_time_ms": 1200.0,
+  "ingested_docs": 6,
+  "description": "Synthetic AMB result fixture",
+  "answer_llm": "demo:answer",
+  "judge_llm": "demo:judge",
+  "results": [
+    {
+      "query_id": "q1",
+      "query": "Question one?",
+      "answer": "Answer one",
+      "reasoning": "Reason one",
+      "context": "Context one",
+      "context_tokens": 100,
+      "retrieve_time_ms": 100.0,
+      "gold_answers": ["Answer one"],
+      "correct": true,
+      "judge_reason": "Matches",
+      "meta": {"question_type": "alpha"},
+      "raw_response": {"provider": "demo"},
+      "category_axes": {"Question Type": ["alpha"]}
+    },
+    {
+      "query_id": "q2",
+      "query": "Question two?",
+      "answer": "Wrong answer",
+      "reasoning": "Reason two",
+      "context": "Context two",
+      "context_tokens": 200,
+      "retrieve_time_ms": 200.0,
+      "gold_answers": ["Answer two"],
+      "correct": false,
+      "judge_reason": "Does not match",
+      "meta": {"question_type": "beta"},
+      "raw_response": {"provider": "demo"},
+      "category_axes": {"Question Type": ["beta"]}
+    },
+    {
+      "query_id": "q3",
+      "query": "Question three?",
+      "answer": "Answer three",
+      "reasoning": "Reason three",
+      "context": "Context three",
+      "context_tokens": 300,
+      "retrieve_time_ms": 300.0,
+      "gold_answers": ["Answer three"],
+      "correct": true,
+      "judge_reason": "Matches",
+      "meta": {"question_type": "alpha"},
+      "raw_response": {"provider": "demo"},
+      "category_axes": {"Question Type": ["alpha"]}
+    }
+  ]
+}

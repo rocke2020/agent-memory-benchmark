@@ -1,0 +1,593 @@
+{
+  "candidate_sha256": "4e94268f30bda9dedf45853c37b1aa9b4385c6e8a4121f2eb3141e77c1d4fb23",
+  "dataset_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+  "experiment": "pilot5-20260822-b",
+  "generated_at": "2026-08-22",
+  "kind": "full-pipeline-variance-pilot",
+  "outer_log_sha256": "09ccc62769d5baed2c634e20ecf0ac405ee106907d3cfe409885aad280302b17",
+  "pilot_query_ids": [
+    "0ddfec37_abs",
+    "0a995998",
+    "15745da0",
+    "b0479f84",
+    "gpt4_f420262d"
+  ],
+  "questions": [
+    {
+      "answer_sha256": [
+        "dae77bec1188fd908ed3753487cfcb4feca37aefca0da0d21e9602e13a9bc72f",
+        "170ad155668bf9e86429c4c5cce83083a6a250cd8d740aa9e1d9631665b6a36f",
+        "7db103c11912976a05e78052d9fea161e49c4623a0235e778b35f972247a3ea1"
+      ],
+      "answer_user_prompt_sha256": [
+        "a0d95368ee6beae1fbbb619f504b8833f7d3e76768bca650c479f9078bd75341",
+        "8a845e84b2e00b4d2663f385c3475ae928fbb9adaf1861dcde5c7016794595e9",
+        "38d44c2bf6af20a3b862988d61553e14b231cf95c6d1cb9528b81256112b6541"
+      ],
+      "context_sha256": [
+        "a88eda7d3528646b1a581098db237c1ac3c8ebe04b9497f9df4720943d7d2abc",
+        "c16df6fa2d100eae23e35b96c2898ac5283273745fb39a9d45a7bf36f24d2ad2",
+        "ad70b69ae228d55c6204547833736e131409def0a409603a2037ac15258ae059"
+      ],
+      "context_tokens": [
+        52440,
+        51445,
+        51861
+      ],
+      "judge_reasons": [
+        "The model correctly states that there is no information about autographed footballs, matching the correct answer that the information is insufficient.",
+        "The model response correctly indicates that the information is insufficient and clarifies the mismatch with autographed baseballs.",
+        "The model correctly states that no autographed footballs were added, matching the correct answer that information is insufficient and only baseballs are mentioned."
+      ],
+      "judge_user_prompt_sha256": [
+        "5cdd8017987cf4e2b1ed1e66346b114e98d8abd13e383701f649129f41f37ffb",
+        "62f7101ddbef6b3bff28c78fe511d99e2545c82cd907214fe08e811177a6311a",
+        "93cb91c1aa30289fe36a976abca281c29d57ef4b42d86cb0a55f7bdd020c9ce2"
+      ],
+      "mixed_replica_verdicts": false,
+      "normalized_answer_sha256": [
+        "7693b96e7585ae3e7e34d683eec8b411b570c730d84a5ad450fb8b7fc181b837",
+        "d70f6a638716b51620292822c1b50e6841d7da6afa4d2435f4e4e043860d4fac",
+        "5fd7e50a5ef12b1d57260772a4177553531a1fc8e4e82637d2ded7ad96ca93ba"
+      ],
+      "original_correct": false,
+      "pass_count": 3,
+      "query_id": "0ddfec37_abs",
+      "raw_response_sha256": [
+        "ca40d522a1fc4c7e4ef000933f5cbb35fcce6469df247997285b568b9bb6c361",
+        "5e9295a7bfd4777d4e5e4dc4c006b9b75c564d7d65da290e4986b3c681437c5a",
+        "51e9993e9996d1e6ea99a0773c243c5f787152365a09a401767aa797a9ed8371"
+      ],
+      "replica_verdicts": [
+        true,
+        true,
+        true
+      ],
+      "semantic_raw_response_sha256": [
+        "d986a003779507628f837dbcf265a377edb6744335cc60232f2d1bebe50b93cd",
+        "c24f3bbf5039fa2822d90baf0f88cab18e47a075592146a3d843162a9ea1f035",
+        "b80e3d053d90f7fa721073e9b067b812077087111905f62aa47a0abb20cf3fae"
+      ],
+      "source_document_ids_sha256": [
+        "438e47b837b1f52865923530724f1ac37b834ff2b549e4ec2d55bcbc2d0fb1ee",
+        "ee3e41444328738ba6b9672f009a0d14e6f73bf58a6125226e13c59d48020042",
+        "83c1321f7318f4017a80861258e57de21fa0dad6b479ecbd79d6771812a341df"
+      ],
+      "unique_answer_hashes": 3,
+      "unique_context_hashes": 3,
+      "unique_normalized_answer_hashes": 3,
+      "unique_raw_response_hashes": 3,
+      "unique_semantic_raw_hashes": 3,
+      "unique_source_document_sets": 3
+    },
+    {
+      "answer_sha256": [
+        "2f920f1444253013d6bd42ff50ceee736c0634a4fd856504903afd5f3ff26998",
+        "0dd5eb71ff250610e5768cf5f91cdba46e85f925046a76384fc312e8b3826e6c",
+        "1e127597d6d98a169c7fb56a0efced553368f44f9ac8327d696e874c88aa152d"
+      ],
+      "answer_user_prompt_sha256": [
+        "267dfa73b8e0ef05434233d7428f7df3df2a381aa9fbd036ee5f46ea5633fb65",
+        "36e4d01fa6af92400ebad8398b443fe247835e14f92c40f07e36198c0a6ef9c5",
+        "528a70df33ef1f40d70d8ac0dffc667873b512aaafbcb5085a723628a8f13c9e"
+      ],
+      "context_sha256": [
+        "f8396343a2b5e8acc3470c0cfd0aa81471ec4fed5296647e6b398ba6ba7bb4a6",
+        "47592bb495b065349467cfa9193dfc3da4bae0ab813ef4575bddb1cbd4057879",
+        "6b914e896a670e3d9702c6f5b86d0aa7ccf4aeda1ffb2be32928a86f57ac9a62"
+      ],
+      "context_tokens": [
+        51707,
+        51752,
+        51882
+      ],
+      "judge_reasons": [
+        "The model response states 2 items, but the correct answer is 3, so it is incorrect.",
+        "The model response does not provide the correct total of 3 items; it claims the total cannot be determined and only specifies 2 pickup items.",
+        "The correct answer is 3, but the model response incorrectly states 2 items."
+      ],
+      "judge_user_prompt_sha256": [
+        "2722c86b52209364fbf3243364513ece6e1f355fc539ac4272c4669bcf2f4ae0",
+        "42f6a18f5aaf52f990066fec582a8980f23666c726c17182e65e20902cd67ffa",
+        "a937ad404a8147a31982272f2a46190e56f997dca0300656a093e91bd169a9f2"
+      ],
+      "mixed_replica_verdicts": false,
+      "normalized_answer_sha256": [
+        "ea4323fd45bf51ed47ea765051a000726d5daf94d03e720dfe042eb851ddf5fc",
+        "4b780dcafae231e1091d6665bc517fb90639b2bcae094b099d8c70ef5ad3d6b4",
+        "6f895fe2fa08ea463292b18b8c92c185fa8a3cf4269bdc9a21b235a5b5de5804"
+      ],
+      "original_correct": false,
+      "pass_count": 0,
+      "query_id": "0a995998",
+      "raw_response_sha256": [
+        "84999d0fc667aa5b66f247dcde6ab33d377f2beb83e77299200b8db90921e7e6",
+        "8113542954ca757e67a6c521f0bf864b86137be3797302646f58a43895133875",
+        "6929dfcd0fd625e42198f4e3d30a50149d75274c909457aef437e2e476ad2248"
+      ],
+      "replica_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "semantic_raw_response_sha256": [
+        "06fc9aabf6565221505eab010ed67145fa87126a51e8f9b961525b23fa21c7bf",
+        "29ffd10b412ede7123fcc48d157801de5b5d094118b51a87bc413a9db7557338",
+        "e63ce7cdf854aaf3aa33ac25513f3b4f96072f78771dfda5cde65f4703998cf0"
+      ],
+      "source_document_ids_sha256": [
+        "23d805283b876a0adff3be2e7c32ce4d75bbff6daf399c3188a2d680d20c19ad",
+        "b713c82817bae5c09b15c993c0ee8af98831ff9affb5aecd329611c1e6d8f282",
+        "23d805283b876a0adff3be2e7c32ce4d75bbff6daf399c3188a2d680d20c19ad"
+      ],
+      "unique_answer_hashes": 3,
+      "unique_context_hashes": 3,
+      "unique_normalized_answer_hashes": 3,
+      "unique_raw_response_hashes": 3,
+      "unique_semantic_raw_hashes": 3,
+      "unique_source_document_sets": 2
+    },
+    {
+      "answer_sha256": [
+        "e66b9a314f9f12142ad8fd1595bf17d233b58802dd5d0f020bae1e957a3b3b34",
+        "0765f4b4b8008e3f9b2bfb7e03ecaa0dfa94244f45eadaa86b17a7a2632285df",
+        "726fac83ed0798197817d642f8c62471f7ebe9263d24860f5ee03181321bb0ee"
+      ],
+      "answer_user_prompt_sha256": [
+        "aa112125d3ad953e4af0d0dfcbe7f0b98ccaa2cb6486dee10b795bf21a870a2c",
+        "46507ee51b4828805291512446b718dfcb511231e3ff235abe54d041bdbe0951",
+        "ce471fcb31942037ba208f0da1e78a4371f8aa65944dd334af313f43e88acd62"
+      ],
+      "context_sha256": [
+        "f5a065c2e0161f6745736da39f401100257d41e9947c3d70e7d9b1236688a854",
+        "65cbcc795014207cd8e1d99cd6c16e83d78adc5ec57bbf1822a2eaf154d08299",
+        "bb2faab436ad20b3c55ff485b7613ee22921ab21cfc26167834bf29785aad5f8"
+      ],
+      "context_tokens": [
+        52220,
+        51423,
+        51407
+      ],
+      "judge_reasons": [
+        "The response includes the correct duration of 'three months'.",
+        "The model response explicitly states 'three months', which matches the correct answer, and the additional detail does not contradict it.",
+        "The model response explicitly mentions 'three months' as the duration of collecting vintage cameras, matching the correct answer."
+      ],
+      "judge_user_prompt_sha256": [
+        "58051f164280fdbe0c3384d91d0eceeed8678de6f7d8e011bc01bc064cc747d9",
+        "02595a90346734e655ce8c15a97098775ac1cf571dbb50f87b37935d4bd6c66f",
+        "d5b88a66e59b293170888c0bfe378a3e69930eaa78714a5e36bae9e5b8aff4e3"
+      ],
+      "mixed_replica_verdicts": false,
+      "normalized_answer_sha256": [
+        "59d2abef51ae38f51a4d22b4c36a0c6a1d954e85afd3b795415fd8292d2ee82e",
+        "06a07b3ffc82d47ac72a4dbc7c8c7ffcbef9e154c8a15d8a6cdcd7cb6355b2d2",
+        "1c3e3277922ae7aa5d62f57a055c0a96838b42034ce9e5eb6218e4500434067b"
+      ],
+      "original_correct": false,
+      "pass_count": 3,
+      "query_id": "15745da0",
+      "raw_response_sha256": [
+        "264f417b4226f8e71e89f4c5f16975deb0c464db011e60b584197e3874c72c8f",
+        "14e1b5942c6b74e11d727ddbd683a397013c4c07adf07fa1d2f4ede475defc1b",
+        "e949c1879fb661a41e41aa6afca7c707cd78fb939a7f829dc5ed0bb0c5b2b673"
+      ],
+      "replica_verdicts": [
+        true,
+        true,
+        true
+      ],
+      "semantic_raw_response_sha256": [
+        "09e8bab576df78f560550971f83f9b596a13443e879852902b1c772a4e1c6d56",
+        "8125d784a8d0201a8763653a2fdb336d039cdc4a457c0191a61e79ac446c824e",
+        "abddeab03d4ce0e0068a16ada448b685bd36688b951b391348b43bd01f2f38d8"
+      ],
+      "source_document_ids_sha256": [
+        "919cb8aac55696134c4fdcf9e385ac2c9cc936b33c2e2f83157aa6b1d783f017",
+        "24213c7676c858b8aadf6b9b593734faec89f4340adb61b8b21222964c4d45e8",
+        "3448534b1f6535cba0205eda1f6e2be9b7f9a9a2bed53177beaec9b26d703941"
+      ],
+      "unique_answer_hashes": 3,
+      "unique_context_hashes": 3,
+      "unique_normalized_answer_hashes": 3,
+      "unique_raw_response_hashes": 3,
+      "unique_semantic_raw_hashes": 3,
+      "unique_source_document_sets": 3
+    },
+    {
+      "answer_sha256": [
+        "908b8938c6ffc05c6f00442bf6ae6e2ffb56ceb849f883a4c914a866b76ab06e",
+        "c789eaed570b24f46838cef7036e83bb7f88461ce09eef26d790a209c3956776",
+        "220836dacc8a15d3c12f034ef470ca35e00f55b502ee4b7b293111a685090b6f"
+      ],
+      "answer_user_prompt_sha256": [
+        "6c6cf0589300c15baf24417502bf758ccae1af5c5be89f3efe7b390d2709f8ad",
+        "86deda047f2f51c1ec48bc92acdd574e2c82517d9402c9680d8c91d126818bd1",
+        "31186e9c409f2c0dc70e9ab2a9cfbfc305d42c88dd8d571399a632c7ab434fa4"
+      ],
+      "context_sha256": [
+        "aed5497becb70f6b26ad364287370049ebbe6774d392cdb4f85b77f2ddeb8be7",
+        "0e77c96a4d02985237a87cde5f65bde1a5560d4a1c7193c8e3f32c90cd38e3a7",
+        "e69996a6fc5814ee499933eb1e6bb052e382634ca000f9f0fca3870abf613b64"
+      ],
+      "context_tokens": [
+        51507,
+        51314,
+        50930
+      ],
+      "judge_reasons": [
+        "The generated answer inaccurately claims the user prefers only nature/environment documentaries, ignoring their known enjoyment of 'Tiger King' (true crime) and 'Free Solo' (adventure), thus failing to properly utilize the provided personal information.",
+        "The generated answer incorrectly states the user would not prefer true crime documentaries, but the user enjoyed 'Tiger King', which is true crime.",
+        "The generated answer correctly recalls the user's interest in nature and adventure documentaries, referencing 'Free Solo' and similar themes, while also noting their likely aversion to true crime."
+      ],
+      "judge_user_prompt_sha256": [
+        "6cfebf1e01d543e1120db841b3171ccb009ccb4601dcc017818aa9e0e060550d",
+        "f52d862b8cfb99b2f83dd97c24ba10a51e16d889ff0244207b9f95c7c5013ca9",
+        "b3befa176aeb00d93da661c1638dcd19a24710cb9ec22c093c9bf62251f60024"
+      ],
+      "mixed_replica_verdicts": true,
+      "normalized_answer_sha256": [
+        "84daceddb7c8da147a0e319276216a741c5730433eb80915f10bb06d33459761",
+        "ab9ab6a11401cad36e5c50eb46dd279777a840800d80d24a01ce4e8bef142044",
+        "b3d68a4992380ea24b20458ca98ff576006f85f06109b2fec9c1645ea117eb93"
+      ],
+      "original_correct": false,
+      "pass_count": 1,
+      "query_id": "b0479f84",
+      "raw_response_sha256": [
+        "234568c69f32a2cdde3bc427561edba3eb1414dc3069615b577775c81d702e7a",
+        "7c9d9ec2764d2f7a151076a1dcf9039043f054fb9c1eede9fc2fc087228a686f",
+        "820c73576be086b920b37814c30b45fe9b49dbc6b1bb2d4068a5720b711707f8"
+      ],
+      "replica_verdicts": [
+        false,
+        false,
+        true
+      ],
+      "semantic_raw_response_sha256": [
+        "d9d36748373620b84be0a508f4527e6c9c0ef7c50c4376012fafb45e2b5af072",
+        "65597c8b1f67719ceefc18c708d3d1fd6ba3630a88ead73cb8bd64e7766ef22c",
+        "c1b356374e78db6a62d44d5f94a63437c1c2fff4df238e59f2ec8a069e52c9ac"
+      ],
+      "source_document_ids_sha256": [
+        "825a37b2c257fc76849373b2cf946c7533489f36400f611ac437efa2a9040843",
+        "f26d52f6cc7359f579a5ab0fcb8e621c0237acfbe63e93d95fb3dbc228bf09cf",
+        "266c7d7f8c17e6acc437b5fe0e1ca3078784a9c259849c05f1568b36c7c8ffcc"
+      ],
+      "unique_answer_hashes": 3,
+      "unique_context_hashes": 3,
+      "unique_normalized_answer_hashes": 3,
+      "unique_raw_response_hashes": 3,
+      "unique_semantic_raw_hashes": 3,
+      "unique_source_document_sets": 3
+    },
+    {
+      "answer_sha256": [
+        "08cc6b029d2a028e00e7b254804cfdd3b4898ce81fdb80e2688b599a927fddeb",
+        "2ae8c28a2f468c3b55c6a10f7084ba1494fd9dfd1479ceb71f47e25b0c4951a1",
+        "98241d22a3cc9415a7092654d9732dc158aee373fec1e669b216d076eef153e8"
+      ],
+      "answer_user_prompt_sha256": [
+        "cf19c89b2f49245b1a56c3035dddad09fb5974dce9b081e5671a2b891df2133e",
+        "837950cebcb2e484f07ecb430e1caf7d78a9fd2dc00742fa6ed39031abfc8924",
+        "92033b8a27b592697f3c9e40980fe458298556026d2adafac8a20f03536e7059"
+      ],
+      "context_sha256": [
+        "bc65b44a35fc5c7790cbb788465ea632e2d5f0d57d8da995abc1a1304940e7df",
+        "4b09dcb31fa31c9e4f1cbed754a495f6bbd659d4b30330b8c43b47063678cb82",
+        "b86bcc46689020cd5010b0e102004d8e00cab7e0d1009ada65ac4a0063a6d000"
+      ],
+      "context_tokens": [
+        51479,
+        50542,
+        51665
+      ],
+      "judge_reasons": [
+        "The model response says JetBlue, which is not the correct answer American Airlines.",
+        "The model did not confirm American Airlines; it stated that the airline cannot be determined from the context.",
+        "The model response does not definitively state American Airlines as the airline on Valentine's Day; it only offers it as a conditional possibility and suggests other flights were booked that day."
+      ],
+      "judge_user_prompt_sha256": [
+        "7253382728353e115c11ed06c7cb7cf6e9ba8f97c77310880788346d4375b6e0",
+        "829bef9c023cd41a609322b2d6b866997216c6dfeb40eae2841727d5df22f3b4",
+        "1359565b6666d19f78e4bc2dae60c15e31150e969c3a9ad63d1659cb3caa68c2"
+      ],
+      "mixed_replica_verdicts": false,
+      "normalized_answer_sha256": [
+        "21087d12579ef3d7b83ea0c4aaf072eae821308508802b8312f083d17aff6b47",
+        "5d002ffc1ed8080bd2b2f36fec18e4828cc3a6af670271fc995cf1baa82f23b6",
+        "716f08651cbe3cb50038d66ca0884d7e56454c53f1e34b1e2ad86db0c622d749"
+      ],
+      "original_correct": false,
+      "pass_count": 0,
+      "query_id": "gpt4_f420262d",
+      "raw_response_sha256": [
+        "10d96fd8ef5a2eb62515fbc1fef5fa235f323bca0590b923f805df60512936dd",
+        "4021d0047a3d626afa24f18603b6667832b8886fb1586f578ef68959964f086a",
+        "3bb21a48f0961fa8fe3b5e95752079fb2e3021ad4510fb7fc112292265cea121"
+      ],
+      "replica_verdicts": [
+        false,
+        false,
+        false
+      ],
+      "semantic_raw_response_sha256": [
+        "bb70e5bc165744a3fc6308ef53120b3097334d6a13fd5f1816bb5e95fe3df6c9",
+        "fc198f96255384dba24f2effe8a5191be4338917e33daee02549db02e5f3fcd7",
+        "07550ad19ced5961ca6ddac245f8c37bd72da3b48c9d6792dbba8071c9da5506"
+      ],
+      "source_document_ids_sha256": [
+        "4a36f752eb97c797f4efdc954ca64a10c7945f8189a5e4df2bc3b904bde5e4b0",
+        "2537f6a1603ee97b5b458ae6875028e95db40ac266001457b1f84cb486a28218",
+        "3905fc51d0dceae21aea59eb45e30e5dc34d0f26f5d8ace5e12de45c93ac8ae1"
+      ],
+      "unique_answer_hashes": 3,
+      "unique_context_hashes": 3,
+      "unique_normalized_answer_hashes": 3,
+      "unique_raw_response_hashes": 3,
+      "unique_semantic_raw_hashes": 3,
+      "unique_source_document_sets": 3
+    }
+  ],
+  "reference_sha256": "d0bcc75fb4060f0a395239a353d2066d3f7d252bbe16d674c951d9855deaf9cf",
+  "reference_url": "https://agentmemorybenchmark.ai/run/outputs%2Flongmemeval%2Fhindsight%2Frag%2Fs.json.gz?id=e47becba",
+  "replica_correct": [
+    2,
+    2,
+    3
+  ],
+  "replica_count": 3,
+  "replicas": [
+    {
+      "confirmed_document_counts": {
+        "0a995998": 44,
+        "0ddfec37_abs": 45,
+        "15745da0": 47,
+        "b0479f84": 48,
+        "gpt4_f420262d": 43
+      },
+      "confirmed_document_ids_sha256": {
+        "0a995998": "b713c82817bae5c09b15c993c0ee8af98831ff9affb5aecd329611c1e6d8f282",
+        "0ddfec37_abs": "a8dfea6384503a6ba4173298ae35fb6b9233626dbed26e9d164fe65b2e14b905",
+        "15745da0": "696166dcd0880cb50d8c8ce2e58586171010361915c47db55d7e5c8de1109641",
+        "b0479f84": "dbe29bf911c783cbd9ebab721b19e4719ce0902e9b6a361a303d19341af8fc31",
+        "gpt4_f420262d": "4a231ee40e0cfdbbce9562767db7f197ab01b39336aaf37733cda47ffcbe9040"
+      },
+      "correct": 2,
+      "daemon_log_error_marker_count": 0,
+      "daemon_log_sha256": "8b596493ec017e93ea66f9b77d96cc3e014e64dc11cc3ecaf93d8452be85d108",
+      "daemon_running_postflight": false,
+      "hindsight_completion_trace": {
+        "calls_by_role": {
+          "hindsight_extraction": 1173,
+          "hindsight_verification": 1
+        },
+        "reasoning_content_calls": 1174,
+        "resolved_models": [
+          "deepseek-v4-flash"
+        ],
+        "sha256": "a4d657cd313e27509cfaa5282573cf2c84d575ee91ac1accdf33b7cc35dd470f",
+        "thinking_requested": [
+          "null"
+        ],
+        "total_calls": 1174,
+        "trace_messages_sha256": "1991f52605cdbe86d620e4f9026a928168c5154b71339744584c742f1729497f"
+      },
+      "namespace": "variance-pilot5-20260822-b-r1",
+      "omb_completion_trace": {
+        "calls_by_role": {
+          "answer": 5,
+          "judge": 5
+        },
+        "reasoning_content_calls": 10,
+        "resolved_models": [
+          "deepseek-v4-flash",
+          "deepseek-v4-pro"
+        ],
+        "sha256": "66ba990acaba9d83d742bf2c310e8c2159f61e3fbcb60af3db026bf2ae2abc3e",
+        "thinking_requested": [
+          "null"
+        ],
+        "total_calls": 10,
+        "trace_messages_sha256": "bc6a03f7cbc8ff5ad6eb2b3aee4827d0ec4e6055f1ab4f533a495a2b75e26cb9"
+      },
+      "profile_id_sha256": "42311754c6c9c44db7eb3bc23549eea53a7aec8280ad8740553d54bfd65a02f5",
+      "query_ids": [
+        "0ddfec37_abs",
+        "0a995998",
+        "15745da0",
+        "b0479f84",
+        "gpt4_f420262d"
+      ],
+      "replica": 1,
+      "result_sha256": "74317478f9893b582b7a04fe2aaf73c60d64d63488aba7496ea3df5c8c6f0b58"
+    },
+    {
+      "confirmed_document_counts": {
+        "0a995998": 44,
+        "0ddfec37_abs": 45,
+        "15745da0": 47,
+        "b0479f84": 48,
+        "gpt4_f420262d": 43
+      },
+      "confirmed_document_ids_sha256": {
+        "0a995998": "b713c82817bae5c09b15c993c0ee8af98831ff9affb5aecd329611c1e6d8f282",
+        "0ddfec37_abs": "a8dfea6384503a6ba4173298ae35fb6b9233626dbed26e9d164fe65b2e14b905",
+        "15745da0": "696166dcd0880cb50d8c8ce2e58586171010361915c47db55d7e5c8de1109641",
+        "b0479f84": "dbe29bf911c783cbd9ebab721b19e4719ce0902e9b6a361a303d19341af8fc31",
+        "gpt4_f420262d": "4a231ee40e0cfdbbce9562767db7f197ab01b39336aaf37733cda47ffcbe9040"
+      },
+      "correct": 2,
+      "daemon_log_error_marker_count": 0,
+      "daemon_log_sha256": "378f36a6021bbb37afdfe8235bc0057eaa1634d6d07cff5d8effbec40c741250",
+      "daemon_running_postflight": false,
+      "hindsight_completion_trace": {
+        "calls_by_role": {
+          "hindsight_extraction": 1173,
+          "hindsight_verification": 1
+        },
+        "reasoning_content_calls": 1174,
+        "resolved_models": [
+          "deepseek-v4-flash"
+        ],
+        "sha256": "e0d78d6afd716dab9a6ccba58e0fd9397d9f6f929593340b9429290633c4ef8d",
+        "thinking_requested": [
+          "null"
+        ],
+        "total_calls": 1174,
+        "trace_messages_sha256": "2c228adf8c48693425377360ccdd12bc01328dd68de34f78c9861a0be363d2b7"
+      },
+      "namespace": "variance-pilot5-20260822-b-r2",
+      "omb_completion_trace": {
+        "calls_by_role": {
+          "answer": 5,
+          "judge": 6
+        },
+        "reasoning_content_calls": 11,
+        "resolved_models": [
+          "deepseek-v4-flash",
+          "deepseek-v4-pro"
+        ],
+        "sha256": "1f9525016c10c14a392d1012ccd1e7f43fa0792529d4a5f4a8069cccf5c201b3",
+        "thinking_requested": [
+          "null"
+        ],
+        "total_calls": 11,
+        "trace_messages_sha256": "0c1caeeac416dbd2f58c66e24c4df73704bed7fd0a882929c215f04dc120a072"
+      },
+      "profile_id_sha256": "36b475d4789a318181de3123a190ef70e2a512e04402fc9b3e52af13e5718216",
+      "query_ids": [
+        "0ddfec37_abs",
+        "0a995998",
+        "15745da0",
+        "b0479f84",
+        "gpt4_f420262d"
+      ],
+      "replica": 2,
+      "result_sha256": "d0e1ab32e886baff02e228a4f878e56eb3a072ebd25571d1f386f84aaf4cac56"
+    },
+    {
+      "confirmed_document_counts": {
+        "0a995998": 44,
+        "0ddfec37_abs": 45,
+        "15745da0": 47,
+        "b0479f84": 48,
+        "gpt4_f420262d": 43
+      },
+      "confirmed_document_ids_sha256": {
+        "0a995998": "b713c82817bae5c09b15c993c0ee8af98831ff9affb5aecd329611c1e6d8f282",
+        "0ddfec37_abs": "a8dfea6384503a6ba4173298ae35fb6b9233626dbed26e9d164fe65b2e14b905",
+        "15745da0": "696166dcd0880cb50d8c8ce2e58586171010361915c47db55d7e5c8de1109641",
+        "b0479f84": "dbe29bf911c783cbd9ebab721b19e4719ce0902e9b6a361a303d19341af8fc31",
+        "gpt4_f420262d": "4a231ee40e0cfdbbce9562767db7f197ab01b39336aaf37733cda47ffcbe9040"
+      },
+      "correct": 3,
+      "daemon_log_error_marker_count": 0,
+      "daemon_log_sha256": "a1399f401bba9fd3b40dc8177e8ef711db3123b334beef6fa1ebd7f08f272863",
+      "daemon_running_postflight": false,
+      "hindsight_completion_trace": {
+        "calls_by_role": {
+          "hindsight_extraction": 1173,
+          "hindsight_verification": 1
+        },
+        "reasoning_content_calls": 1174,
+        "resolved_models": [
+          "deepseek-v4-flash"
+        ],
+        "sha256": "7d99884e0501666aa5a136959aeba27e3a706b0f9bed9f5d268598eceadd4200",
+        "thinking_requested": [
+          "null"
+        ],
+        "total_calls": 1174,
+        "trace_messages_sha256": "a2445001fe83b1eb8085b36ad7a54a755069821b8613f0474a9393a17e040d5e"
+      },
+      "namespace": "variance-pilot5-20260822-b-r3",
+      "omb_completion_trace": {
+        "calls_by_role": {
+          "answer": 5,
+          "judge": 5
+        },
+        "reasoning_content_calls": 10,
+        "resolved_models": [
+          "deepseek-v4-flash",
+          "deepseek-v4-pro"
+        ],
+        "sha256": "ba279ef32978a6613e174809738cbe082e09244086507914a4f9f89907ab6d06",
+        "thinking_requested": [
+          "null"
+        ],
+        "total_calls": 10,
+        "trace_messages_sha256": "ae6b5116de60547c4b33e209f8f1976f7dbb9a2f8fb79ec847d4d659342f8784"
+      },
+      "profile_id_sha256": "b636c28432c63a2d1b051de615c32dce4d06144170a2e16cb3bf0d7b24f70fbe",
+      "query_ids": [
+        "0ddfec37_abs",
+        "0a995998",
+        "15745da0",
+        "b0479f84",
+        "gpt4_f420262d"
+      ],
+      "replica": 3,
+      "result_sha256": "3e564dedb3950ccc19328b22a64d7538692ade8876320f7a5a1c3a38ff25a6c4"
+    }
+  ],
+  "runtime_config": {
+    "answer": {
+      "endpoint_host": "api.deepseek.com",
+      "model_id": "openai:deepseek-v4-pro"
+    },
+    "hindsight": {
+      "embed_version": "0.4.17",
+      "embedding_model": "BAAI/bge-small-en-v1.5",
+      "embedding_provider": "local",
+      "installed_embed_version": "0.4.17",
+      "reranker_max_candidates": "300",
+      "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+      "reranker_provider": "local"
+    },
+    "hindsight_extraction": {
+      "endpoint_host": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "provider": "openai"
+    },
+    "judge": {
+      "endpoint_host": "api.deepseek.com",
+      "model_id": "openai:deepseek-v4-flash"
+    }
+  },
+  "schema_version": 1,
+  "source_code_sha256_at_run": {
+    "eval_analysis/amb_report.py": "46008a5f7c11f53c0eb47be2401e109722cc762b621216745f1c63db9abf210d",
+    "eval_analysis/hindsight_repair.py": "f347031cba20cb5019e2a5d28af429c082a240e3eddbcba5dac1c87a6884c588",
+    "eval_analysis/hindsight_repair_daemon.py": "a68c037f5c099769bd37344bec8790d03f6e82b3816d59ff2d7cc3f752e0db70",
+    "eval_analysis/variance_probe.py": "947d15f4529da2b66e2aebd0aac8bebdcce00a1493799392d9cffb9823de53a7",
+    "eval_analysis/variance_trace.py": "e78a002981a5cc790405c0cc13cdf1326c948e5fea4906529ad9bc7ed224957f"
+  },
+  "trace_boundary": {
+    "failed_or_internal_sdk_attempts_captured": false,
+    "interpretation": "Saved output variation is direct evidence; trace counts are not a billing-complete attempt ledger.",
+    "omb_openai_sdk_max_retries_at_run": 2,
+    "schema": "successful-response-v1",
+    "successful_responses_captured": true
+  }
+}

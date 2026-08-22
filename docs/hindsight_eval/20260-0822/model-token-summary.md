@@ -1,5 +1,5 @@
 # model and token usages
-462 question for orig ds, 38 fron tencent cloud ds.
+462 questions used the official DeepSeek supplier and 38 used Tencent's DeepSeek-compatible supply chain. This analysis pools both cohorts as an explicit evaluation assumption; no matched supplier A/B independently proves quality equivalence.
 from 2028-0819 to 0822, only at no peak time to save cost.
 The cost, api request number and tokens include both OMB and HINDSIGHT_API usage.
 
@@ -24,6 +24,6 @@ approximately totally 1600 yuan, api requests 118648, tokens 743,356,436.
 ### phase 0, 0->112, 112 questions finished
 cost 362 yuan, api requests 26927, tokens 168,358,427.
 ### resume 1, 112->150, 38 questions finished
-tencent cloud, so cannot know excat used tokens and cost of resume 1.
+Tencent Cloud, so the exact tokens and cost of resume 1 are unavailable; its 38 questions remain pooled with the official-supplier cohort under the assumption above.
 ### resuem 2-3, 150->500, 350 questions finished
 cost 1117 yuan, api requests 82704, tokens 518,502,920

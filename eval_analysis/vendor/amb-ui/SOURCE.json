@@ -1,0 +1,15 @@
+{
+  "source_repository": "https://github.com/vectorize-io/agent-memory-benchmark",
+  "source_ref": "origin/main@62364d7",
+  "captured_at": "2026-08-22",
+  "upstream_sha256": {
+    "index.html": "8e1ed4367d321cc7b35d867de8090e09e26bd23e8c05b7ce0e79acf516117c06",
+    "assets/index-Btp5tVca.js": "2928b3fa778333c933659d582df3f5dbb8aac294a146832d7fdc3a264d4a24e6",
+    "assets/index-oMp7wz1n.css": "ea0b9198695e2096c53640283cbc8d694cf65e31c55c28df5d003cd03e41ea6f"
+  },
+  "offline_changes": [
+    "Removed remote analytics and Google Fonts requests from index.html.",
+    "Added system light/dark theme overrides in assets/offline-theme.css.",
+    "Kept the upstream JavaScript and CSS bundles byte-identical."
+  ]
+}

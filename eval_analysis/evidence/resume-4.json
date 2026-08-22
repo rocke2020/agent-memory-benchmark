@@ -1,0 +1,53 @@
+{
+  "changed_query_ids": [
+    "4f54b7c9",
+    "gpt4_2312f94c",
+    "gpt4_78cf46a3"
+  ],
+  "generated_at": "2026-08-22",
+  "kind": "three-question-retain-repair",
+  "log_error_marker_count": 0,
+  "log_sha256": "979a207d4da54e0b5ba1128aefa8b898dbfe3939556e51ff623482fb1efa0784",
+  "merged_correct": 448,
+  "merged_sha256": "438bd8f81861487391e0eaf72ceb8eb2c7c501ef402f8b5e910a637dad9a90cd",
+  "merged_total_queries": 500,
+  "questions": [
+    {
+      "actual_document_ids_sha256": "7b06d419a278dee84371fa5ec28bf37628531ae0ed0370018034bf3b69e42647",
+      "attestation_sha256": "547b2393b0125edac711a4f9ab29a2da16d3d6130b2a18e4b80a3e8dcc65775c",
+      "confirmed_documents": 45,
+      "correct": true,
+      "expected_document_ids_sha256": "7b06d419a278dee84371fa5ec28bf37628531ae0ed0370018034bf3b69e42647",
+      "query_id": "4f54b7c9",
+      "result_sha256": "2a50bd86cd144368a3116807c2c78eaa78f6ad32218d45c275a370f40f08520f"
+    },
+    {
+      "actual_document_ids_sha256": "540d3438ffa13842efbc294515462f90d7e178041601d1bc0a928f0fddcda9ec",
+      "attestation_sha256": "06c94513da581769d379532dfe4bd12b6661035aa1b430195918614993dba7ca",
+      "confirmed_documents": 45,
+      "correct": true,
+      "expected_document_ids_sha256": "540d3438ffa13842efbc294515462f90d7e178041601d1bc0a928f0fddcda9ec",
+      "query_id": "gpt4_2312f94c",
+      "result_sha256": "a6aee9012e10db59603a5f1058029e2b1243ed23063ef595bc34edd785c7db3e"
+    },
+    {
+      "actual_document_ids_sha256": "6939462b0c7b7acd7710b04861b100999cc025d6815c7fe9a32f0fbf423e3b0e",
+      "attestation_sha256": "93b8d93910182514b5ca37bf76e50ecf0266f6d58e3ea92a601101b6e6515242",
+      "confirmed_documents": 49,
+      "correct": true,
+      "expected_document_ids_sha256": "6939462b0c7b7acd7710b04861b100999cc025d6815c7fe9a32f0fbf423e3b0e",
+      "query_id": "gpt4_78cf46a3",
+      "result_sha256": "8a30d9acab6c08afbd6ba63f34ae810dccae8e8c8bf34aeabb3491aa5fdbd87d"
+    }
+  ],
+  "schema_version": 1,
+  "source_correct": 448,
+  "source_local_path": "outputs/longmemeval/hindsight-deepseek/rag/s.json",
+  "source_sha256": "4e94268f30bda9dedf45853c37b1aa9b4385c6e8a4121f2eb3141e77c1d4fb23",
+  "source_total_queries": 500,
+  "unchanged_query_count": 497,
+  "upstream_backports": [
+    "438ce98b4",
+    "4bc7013e4"
+  ]
+}
