@@ -195,6 +195,8 @@ The reusable report path is provider-agnostic; the repair path is deliberately f
 - `hindsight_repair_daemon.py`: Hindsight 0.4.17 launcher with the two exact upstream backports and startup self-test.
 - `variance_probe.py`: create-only full-pipeline replicas, completeness gates, and cross-replica summaries.
 - `variance_trace.py`: completion metadata plus exact and identity-normalized retrieval hashes.
+- `deepseek_nondeterminism.py`: frozen 55-question selection, live role preflight, immutable paid-run journal, retain/completion attestations, and population-weighted analysis.
+- `run_deepseek_nondeterminism_55.sh`: one-line create-only launcher for selection → live preflight → paid run → offline analysis.
 - `evidence/`: committed redacted replay capsule with source hashes and clean-checkout verification commands.
 - `tests/`: offline report, comparison, isolation, attestation, and merge regression tests.
 - `vendor/amb-ui/`: official report bundles plus the offline entrypoint and system-theme override.

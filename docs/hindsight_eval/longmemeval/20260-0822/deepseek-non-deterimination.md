@@ -30,9 +30,11 @@ The run must stop before paid ingestion if any frozen input differs from this ta
 | Candidate | `outputs/longmemeval/hindsight-deepseek/rag/s.json` |
 | Candidate SHA-256 | `4e94268f30bda9dedf45853c37b1aa9b4385c6e8a4121f2eb3141e77c1d4fb23` |
 | Official reference | `outputs/longmemeval/hindsight/rag/s.json.gz` |
+| Official gzip-byte SHA-256 | `2025b1def4794861ba768730d2090816c6a51425b46d29545762db554c3818ca` |
 | Dataset SHA-256 | `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442` |
 | Pilot evidence | `eval_analysis/evidence/pilot5-20260822-b.json` |
 | Pilot evidence SHA-256 | `771ccdbf5b9cbde7f2a587bf60d4123f2e0909fe0ea01ebe4fdf948ec2514ba3` |
+| Resume-1 log SHA-256 | `052450343a16bf61ef3b2cb1ebded489a7e09b4e02b66bf26c73ca76b86762d6` |
 | Requested Hindsight/judge model | `deepseek-v4-flash` |
 | Requested answer model | `deepseek-v4-pro` |
 | Supplier versions | Flash `0731`; Pro `0813` |
@@ -89,7 +91,7 @@ SHA256(study_id + "\0" + cohort + "\0" + query_id), then query_id
 
 The five pilot IDs are forced into the 30-error sample. The remaining 25 errors and all 30 controls take the first IDs under the hash order after applying Section 3 exclusions. A control whose `_abs`-stripped ID equals a selected error's ID is rejected.
 
-Expected canonical selection-manifest SHA-256: `572a3a774c8e4734fb017f882c031f8299c6db08b1f623e76946c7b5eaa3a482`.
+The manifest contains exactly `study_id`, `analysis_frame`, the three ordered query-ID lists, and `exclusions`; its hash is SHA-256 over UTF-8 canonical JSON with sorted keys and compact separators, excluding no data and adding no timestamp or self-hash. Expected canonical selection-manifest SHA-256: `572a3a774c8e4734fb017f882c031f8299c6db08b1f623e76946c7b5eaa3a482`.
 
 Expected sorted new-55 ID-set SHA-256: `ff003d654962f23729d70b64106e812babdd3eb5504ffa4369dd567b53589653`.
 
@@ -170,9 +172,9 @@ gpt4_8279ba02
 
 ## 5. Required implementation gate
 
-The existing `eval_analysis/variance_probe.py` cannot run this study safely: it hardcodes the pilot five, requires every selected query to be a local error that the official run passed, and rejects a single replica. Paid execution must wait for a tested manifest-driven study command.
+The manifest-driven implementation is `eval_analysis/deepseek_nondeterminism.py`; it reuses the verified pilot primitives while replacing the mutable AMB checkpoint with immutable per-question journal entries.
 
-Implement `eval_analysis/deepseek_nondeterminism.py` with four commands:
+Its four internal commands are:
 
 ```text
 select     build the frozen manifest and reject any ID/hash/quota drift
@@ -181,78 +183,44 @@ run        execute exactly the new 55 once in create-only isolated banks
 analyze    combine the new 55 with pilot evidence and write the estimates
 ```
 
-The implementation should reuse the existing selected-dataset, completion tracing, retry disabling, document attestation, daemon shutdown, and exclusive-write helpers rather than create a second execution path.
+The runner additionally writes append-only retain receipts and question-scoped answer/judge completion evidence. Preflight records the current study-code and lockfile hashes, and `run` refuses any drift or a preflight older than 15 minutes.
 
 Required offline tests:
 
 1. The selector reproduces both expected hashes and all quotas.
 2. Changing one ID, status, type, exclusion, or source hash fails closed.
-3. The runner accepts one manifest-driven run while the pilot tool still requires at least two replicas.
-4. The runner produces exactly 55 unique terminal results and never loads an unselected question's documents.
-5. Every completion attempt has one terminal event and `sdk_max_retries == 0`.
-6. A partial run cannot overwrite the candidate, pilot evidence, selection manifest, or completed output.
-7. Analysis gives each of 60 questions equal weight and reproduces all three pilot-substitution sensitivity estimates.
+3. Every successful question creates one immutable journal entry; a changed or duplicate entry fails closed.
+4. Retrieval document and chunk IDs remain inside that question's expected document set.
+5. Every retain batch and completion attempt has one terminal receipt, and OpenAI SDK retries remain disabled.
+6. A partial run cannot overwrite the candidate, pilot evidence, selection manifest, log, journal entry, or completed output.
+7. Analysis averages replicas within each pilot question, then weights the per-type rates to the eligible populations and reproduces all three pilot-substitution sensitivity estimates.
 
 ## 6. Execution runbook
 
-The paid run starts only after the offline implementation gate passes and the wall clock is after 18:00 Asia/Shanghai on 2026-08-22.
+The create-only launcher performs selection, live preflight, the paid 55, and offline analysis in one fail-fast pipeline with `pipefail`; the confirmation flag records the already completed manual Flash 0731, Pro 0813, and default-thinking-high check.
 
-### Step 1: Build and verify the selection without network calls
-
-```bash
-uv run python eval_analysis/deepseek_nondeterminism.py select \
-  --study-id deepseek-nondeterminism-20260822-55a \
-  --candidate outputs/longmemeval/hindsight-deepseek/rag/s.json \
-  --reference outputs/longmemeval/hindsight/rag/s.json.gz \
-  --pilot-summary eval_analysis/evidence/pilot5-20260822-b.json \
-  --resume-log 'run-artifacts/2028-0819->0822/longmemeval-hindsight-deepseek-resume-1.log'
-```
-
-Success requires both expected selection hashes and `new_errors=25 controls=30 new_runs=55`.
-
-### Step 2: Run the fail-closed preflight
+### Start the complete Stage 1
 
 ```bash
-uv run python eval_analysis/deepseek_nondeterminism.py preflight \
-  --study-id deepseek-nondeterminism-20260822-55a \
-  --live
+./eval_analysis/run_deepseek_nondeterminism_55.sh --confirm-supplier-versions
 ```
 
-The preflight must load the real `.env` with secrets redacted, resolve all Hindsight/answer/judge roles, verify the candidate and dataset hashes, prove the output/profile namespace is absent, and make minimal live calls to both DeepSeek models. The API response and trace must match the requested aliases; before the paid run, a separate manual supplier-console gate must confirm Flash 0731, Pro 0813, and default thinking effort `high`, because those fields are not all exposed by the saved API response.
-
-### Step 3: Execute and capture the new 55
-
-```bash
-uv run python eval_analysis/deepseek_nondeterminism.py run \
-  --study-id deepseek-nondeterminism-20260822-55a \
-  2>&1 | tee 'run-artifacts/2028-0819->0822/longmemeval-hindsight-deepseek-nondeterminism-55.log'
-```
-
-The command must use one new Hindsight profile containing 55 isolated question banks, retain synchronously, checkpoint after each terminal question, disable opaque OpenAI SDK retries, and stop the daemon in `finally`.
-
-### Step 4: Analyze without further model calls
-
-```bash
-uv run python eval_analysis/deepseek_nondeterminism.py analyze \
-  --study-id deepseek-nondeterminism-20260822-55a
-```
-
-The analyzer writes a create-only JSON report and a concise Markdown result beside it. It must not mutate the candidate 500-result artifact.
+The launcher refuses existing selection/run state, profile state, or log; verifies both selection hashes and `new_errors=25 controls=30 new_runs=55`; loads the real `.env` with secrets redacted; resolves answer, judge, extraction, embedding, and reranker roles; makes minimal live Pro/Flash calls; and runs a one-document patched-daemon synchronous-retain canary before the paid profile. The canary daemon stops and its state is preserved, then the run uses one new profile with 55 isolated banks; each completed question becomes an immutable journal file, every trace remains append-only, and the paid daemon stops in `finally` before the final result is created.
 
 ## 7. Failure and resume protocol
 
-A partial or failed paid run preserves every successful question and repairs only missing or invalid units in a new namespace.
+A partial or failed paid run preserves every successful question as an immutable journal entry and never creates the final `run/s.json`.
 
 - Never delete a Hindsight bank or profile.
-- Never overwrite the candidate, pilot summary, selection manifest, partial result, or final result.
+- Never overwrite the candidate, pilot summary, selection manifest, log, journal entry, attestation, or final result.
 - On HTTP 500, completion failure, document mismatch, model drift, or daemon shutdown failure, stop and retain the log plus partial artifacts.
 - Derive completed units from valid terminal result records bound to the frozen manifest, not from process exit or non-empty output.
-- Resume only missing/invalid query IDs with a new recovery suffix such as `-repair1`.
-- Merge into a new create-only result after proving exactly 55 selected IDs, with repaired records replacing only their failed counterparts.
+- Do not rerun the one-line launcher after failure. Inspect the immutable journal and traces first, then build a failure-specific `-repair1` command that selects only missing/invalid IDs in a new profile.
+- The initial launcher deliberately does not guess a generic recovery action before the failure class is known; a repaired result may be merged only after proving exactly 55 selected IDs, with repaired records replacing only their failed counterparts.
 
 ## 8. Analysis method
 
-The estimator averages repeats within a question first, then averages questions within each type, so the pilot five never become 15 independent questions.
+The primary estimand averages repeats within a pilot question first, gives sampled questions equal weight inside their question type, and then weights each type's recovery and regression rates to its eligible error and correct populations; it does not treat all 60 sampled questions as one unweighted population.
 
 For question type `t`:
 
@@ -273,7 +241,7 @@ Report:
 4. `net / 25` and `gross / 25` only as signed and gross scale comparisons, not causal shares.
 5. Three sensitivity estimates that substitute pilot Replica 1, 2, or 3 for the pilot means while keeping all new-55 outcomes fixed.
 
-One new observation per non-pilot question cannot support a precise confidence interval. Report exact observed counts, the three sensitivity values, and the arithmetic inputs instead of a false precision claim.
+One new observation per non-pilot question cannot support a precise confidence interval. The implementation therefore reports exact observed counts, the population-weighted point estimate, and the three pilot-substitution values without claiming a confidence interval.
 
 ## 9. Sample adequacy and trust decision
 
@@ -285,15 +253,7 @@ The initial 60 unique questions are sufficient to produce a first DeepSeek noise
 - The pilot's repeated observations improve the within-question estimate for five errors only; they do not increase the number of represented questions.
 - Deterministic stratification and population weighting reduce avoidable selection distortion but cannot replace more independent questions or replicas.
 
-After each stage, calculate the three pilot-substitution estimates plus the equal-question combined estimate and a 95% uncertainty interval using a predeclared question-type-stratified method with a fixed random seed. The analyzer must not select a friendlier method after seeing outcomes.
-
-Use the upper uncertainty bound on gross instability as the estimated **single-run noise floor**: a future memory-score difference smaller than that bound is not trustworthy from one DeepSeek run alone. For the current comparison, evaluate that bound against 25 verdicts:
-
-1. **Clearly untrustworthy:** the lower bound is already large enough to invalidate the score difference being evaluated; stop because more samples are unnecessary for that decision.
-2. **Decision-sufficient:** the upper bound is below the score difference being evaluated; stop, while retaining the bound as the minimum effect size that one run can support.
-3. **Inconclusive:** the interval crosses the decision threshold; either expand under Section 10 or stop conservatively and require replicas for important comparisons.
-
-Even zero regressions among 30 controls would not certify stability: the usual zero-event 95% upper-bound scale is about 10%, which is large when extrapolated over 415 eligible correct questions. Stage 1 therefore provides an approximation in all cases, but it proves trustworthiness only when the uncertainty bound is sufficiently separated from the effect size of interest.
+Use raw flips, the population-weighted net/gross estimates, and the three pilot substitutions together. Clear material flipping is enough to reject single-run trustworthiness; low observed flipping is only an inconclusive approximation, because even zero regressions among 30 controls has a usual one-sided 95% zero-event upper-bound scale near 10%, or about 39 of the 415 eligible correct questions.
 
 ## 10. Adaptive extension
 
@@ -303,7 +263,7 @@ The full 500-question run was approximately CNY 1,600, so a simple linear estima
 
 After Stage 1, choose exactly one cost outcome:
 
-1. **Clearly untrustworthy or decision-sufficient:** stop and publish the approximation plus its noise floor.
+1. **Clearly untrustworthy:** stop and publish the approximation; more samples are unnecessary for that policy decision.
 2. **Inconclusive, but cost control matters more than certifying one-run stability:** stop and label the result `cost-limited`; future important comparisons require replicas or uncertainty reporting.
 3. **Inconclusive, and permitting future single-run evaluation would materially reduce ongoing cost:** offer the next deterministic batch and wait for explicit cost approval.
 
@@ -325,13 +285,14 @@ The study is publishable as an approximation only when every gate below passes.
 
 - Selection manifest matches both frozen SHA-256 values and contains 5 pilot, 25 new error, and 30 control IDs with no overlap.
 - The new run contains exactly 55 unique terminal results: 25 baseline failures and 30 baseline passes.
-- All 2,654 expected document IDs are present across the 55 isolated banks; with batch size 8, all 355 expected retain batches complete.
+- All 2,654 expected document IDs are present across the 55 isolated banks; all retrieval IDs stay inside the matching bank; and each of the 355 expected batch identities has exactly one successful synchronous terminal receipt.
 - Completion traces contain at least 55 answer and 55 judge successes, no failed terminal events, and no opaque SDK retry allowance.
 - Requested models, resolved models, supplier versions, thinking behavior, prompts, dataset, and Hindsight configuration match the frozen run.
-- Every result has context, answer, judge verdict, usage, request ID, and stable hashes for context, answer, raw response, semantic raw response, source-document set, answer prompt, and judge prompt.
+- The preflight patched-daemon canary has one confirmed document, one successful synchronous retain receipt, extraction/verification completion evidence, and a verified daemon stop.
+- The sidecar binds every result to answer/judge usage, request IDs, and prompt hashes, plus stable context, answer, raw-response, and source-document hashes.
 - The Hindsight daemon is stopped after success or failure.
 - Candidate and pilot evidence hashes are unchanged after the run.
-- Analysis exposes raw counts, equal-question combined estimates, three pilot sensitivity estimates, and the no-confidence-interval limitation.
+- Analysis exposes raw counts, the declared population-weighted estimate, three pilot sensitivity estimates, and the no-confidence-interval limitation.
 
 ## 12. Outputs and ownership
 
@@ -343,8 +304,12 @@ Expected paths:
 eval_analysis/nondeterminism-results/deepseek-nondeterminism-20260822-55a/
   selection.json
   preflight.json
+  preflight-canary/retain-batches.jsonl
+  preflight-canary/hindsight-completions.jsonl
+  journal/001-<query-id>.json ... journal/055-<query-id>.json
   run/s.json
   run/retain-attestation.json
+  run/retain-batches.jsonl
   run/omb-completions.jsonl
   run/hindsight-completions.jsonl
   analysis.json

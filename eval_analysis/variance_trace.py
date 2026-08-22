@@ -7,10 +7,16 @@ import json
 import threading
 import uuid
 from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
 _TRACE_WRITE_LOCK = threading.Lock()
+_COMPLETION_SCOPE: ContextVar[str | None] = ContextVar(
+    "variance_completion_scope",
+    default=None,
+)
 _UNSTABLE_RAW_KEYS = frozenset(
     {
         "id",
@@ -29,6 +35,20 @@ def canonical_json_sha256(value: Any) -> str:
         separators=(",", ":"),
     ).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+@contextmanager
+def completion_scope(scope: str):
+    token = _COMPLETION_SCOPE.set(scope)
+    try:
+        yield
+    finally:
+        _COMPLETION_SCOPE.reset(token)
+
+
+def bind_completion_scope(scope: str) -> None:
+    """Bind a scope for the lifetime of the current asyncio task."""
+    _COMPLETION_SCOPE.set(scope)
 
 
 def _normalized_chunk_id(chunk_id: Any, document_id: Any) -> Any:
@@ -158,6 +178,7 @@ def completion_attempt_event(
         "thinking_requested": thinking_requested,
         "messages_sha256": canonical_json_sha256(call_params.get("messages")),
         "sdk_max_retries": sdk_max_retries,
+        "scope": _COMPLETION_SCOPE.get(),
     }
 
 
@@ -174,6 +195,7 @@ def completion_failure_event(
         "error_type": type(error).__name__,
         "request_id": getattr(error, "request_id", None),
         "status_code": getattr(error, "status_code", None),
+        "scope": _COMPLETION_SCOPE.get(),
     }
 
 
@@ -219,6 +241,7 @@ def make_sync_completion_wrapper(
                 kwargs,
                 response,
                 role=role,
+                scope=_COMPLETION_SCOPE.get(),
                 call_id=call_id,
             ),
         )
@@ -260,6 +283,7 @@ def make_async_completion_wrapper(
                 kwargs,
                 response,
                 role=role,
+                scope=_COMPLETION_SCOPE.get(),
                 call_id=call_id,
             ),
         )

@@ -287,6 +287,7 @@ class SemanticTraceTests(unittest.TestCase):
 
     def test_sync_and_async_wrappers_persist_real_completion_metadata(self):
         from variance_trace import (
+            completion_scope,
             make_async_completion_wrapper,
             make_sync_completion_wrapper,
         )
@@ -327,9 +328,10 @@ class SemanticTraceTests(unittest.TestCase):
                 lambda _params: "extraction",
             )
 
-            self.assertIs(
-                sync_wrapper(resource, model="requested", messages=[]), response
-            )
+            with completion_scope("query-123"):
+                self.assertIs(
+                    sync_wrapper(resource, model="requested", messages=[]), response
+                )
             self.assertIs(
                 asyncio.run(async_wrapper(resource, model="requested", messages=[])),
                 response,
@@ -348,6 +350,8 @@ class SemanticTraceTests(unittest.TestCase):
         self.assertEqual(events[2]["call_id"], events[3]["call_id"])
         self.assertEqual(events[0]["sdk_max_retries"], 0)
         self.assertEqual(events[1]["request_id"], "request-456")
+        self.assertEqual(events[0]["scope"], "query-123")
+        self.assertEqual(events[1]["scope"], "query-123")
 
     def test_completion_wrapper_records_a_sanitized_failure_terminal(self):
         from variance_trace import make_sync_completion_wrapper
