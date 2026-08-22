@@ -49,6 +49,8 @@ The local deficit is concentrated in multi-session and temporal-reasoning questi
 
 The discordant split is 39 versus 14; an exact paired McNemar test gives `p = 0.000802`, which describes a systematic artifact difference but does not identify its cause.
 
+Question `6d550036` is a both-fail case whose raw history supports `3` under project-leading semantics or `2` under a narrower team-leading definition, while its declared evidence sessions omit the strongest current team-lead record; see the [LongMemEval gold-answer case studies](longmemeval-gold-answer-case-studies.md) for the evidence and adjudication policy.
+
 ## 4. Attribution boundary
 
 The 5-point gap cannot be assigned solely to the DeepSeek answer model because extraction, retrieval outputs, answer generation, and judging changed together.
