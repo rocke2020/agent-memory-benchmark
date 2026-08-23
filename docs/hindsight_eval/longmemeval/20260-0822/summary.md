@@ -1,6 +1,6 @@
 # LongMemEval Hindsight DeepSeek reproduction summary
 
-> **TL;DR:** Our matched 500-question run scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**; the gap has two unresolved contributor classes, full-pipeline LLM nondeterminism and the DeepSeek-versus-Gemini model-stack change, while DeepSeek used default thinking at middle-tier `high` effort.
+> **TL;DR:** Our matched 500-question run scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**; a cost-bounded DeepSeek calibration then observed 9 verdict flips in 55 new questions and an estimated 4.66-point gross instability scale on the clean frame, so one DeepSeek full-pipeline score is not precise enough for close memory comparisons, while the 5-point official gap still cannot be causally split between nondeterminism and the DeepSeek-versus-Gemini model-stack change.
 
 ## 1. Headline result
 
@@ -109,13 +109,13 @@ The only mixed benchmark verdict was `b0479f84 = false, false, true`, but an aux
 
 DeepSeek Pro also re-judged all five original errors as false and agreed that the clearer replica 1/2 answers for `0ddfec37_abs` and `15745da0` were correct; an independently dispatched Terra review was more generous on the original `15745da0`, illustrating that judge strictness itself is a measurement variable, and its runtime model route was not independently exposed for verification.
 
-## 7. Recommendation
+## 7. DeepSeek nondeterminism result and recommendation
 
-The cost-bounded follow-up reuses the five pilot errors' three completed replicas and adds **55 new DeepSeek full-pipeline runs: 25 additional original errors plus 30 category-matched originally correct controls**. This yields 60 unique questions and 70 rerun observations for an approximate DeepSeek recovery, regression, and verdict-flip estimate relative to the 25-verdict gap, not an exact causal percentage.
+The completed cost-bounded follow-up combines the five pilot errors' three replicas with **55 new DeepSeek full-pipeline runs: 25 additional original errors plus 30 category-matched originally correct controls**. The new 55 produced 8 recoveries and 1 regression, or 9 raw flips (16.4%) and a signed gain of 7 verdicts.
 
-Each question retains equal weight: the five pilot questions contribute their per-question mean across three replicas, while every new question contributes one result. The estimate is then weighted back to the eligible error and correct populations by question type; the three pilot replicas are also substituted one at a time to show sensitivity to their uneven repeat count.
+After averaging replicas within each pilot question and weighting question-type rates back to the 458-question clean frame, the estimate is **+9.325 net verdicts (2.04 pp)** and **21.325 gross unstable verdicts (4.66 pp)**. These are respectively `0.373` and `0.853` times the 25-verdict official gap as scale comparisons, not causal shares of that gap; the pilot-replica sensitivity range remains material at 8.658–10.658 net and 20.658–22.658 gross verdicts.
 
-The first-stage sample is not assumed sufficient in advance: if its uncertainty or pilot-sensitivity range misses the predeclared precision gate, extend the same deterministic selection with the remaining eligible errors and additional controls in cost-approved batches. The frozen selection, stopping rule, implementation gate, paid-run command, recovery procedure, estimators, and acceptance checks are in the [DeepSeek nondeterminism design and runbook](deepseek-non-deterimination.md).
+The operational conclusion is clear enough to stop: a single DeepSeek run may be useful as directional evidence, but important comparisons that could turn on a few verdicts require replicas or explicit uncertainty. No Stage 2 spend is planned for this trust-policy decision; the full proof boundary, Repair-4 provenance, weighting method, sensitivity analysis, and future optional extension are in the [DeepSeek nondeterminism result and runbook](deepseek-non-deterimination.md).
 
 ## 8. Reusable artifacts
 

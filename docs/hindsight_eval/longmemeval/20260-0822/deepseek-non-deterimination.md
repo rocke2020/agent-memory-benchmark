@@ -1,12 +1,12 @@
-# DeepSeek nondeterminism study: design and runbook
+# DeepSeek nondeterminism study: result, design, and runbook
 
-**Terms:** The **candidate** is our frozen 448/500 DeepSeek result. The **pilot five** are five candidate errors already rerun three times. The **new 55** are 25 additional errors plus 30 originally correct controls that will each run once. A **recovery** is original fail → rerun pass; a **regression** is original pass → rerun fail. A **create-only bank** is a new Hindsight bank that must not overwrite or delete earlier benchmark state.
+**Terms:** The **candidate** is our frozen 448/500 DeepSeek result. The **pilot five** are five candidate errors already rerun three times. The **new 55** are 25 additional errors plus 30 originally correct controls that each contribute one terminal observation. **Repair-4** is the failure-specific rerun of the four new-55 questions that did not produce journals in the first paid attempt. A **composite result** combines immutable results from more than one create-only profile while preserving a hash-bound source attestation for every question. A **recovery** is original fail → rerun pass; a **regression** is original pass → rerun fail. A **create-only bank** is a new Hindsight bank that must not overwrite or delete earlier benchmark state.
 
-> **TL;DR:** Reuse the pilot five's 15 completed question-runs and start with the frozen new 55 after 18:00 Asia/Shanghai on 2026-08-22. The operational decision is whether one DeepSeek run is trustworthy for future in-house memory comparisons or whether those evaluations require replicas and uncertainty reporting; extend the deterministic sample only when Stage 1 cannot settle that decision and the user approves more cost.
+> **TL;DR:** Stage 1 observed 8 recoveries and 1 regression in the new 55 questions; after population weighting and combining the pilot five, the estimated gross instability is 21.325 verdicts across the 458-question clean frame, while signed net drift is +9.325 verdicts. This is enough to reject a single DeepSeek full-pipeline score as a precise basis for future in-house memory comparisons, so no cost extension is needed for that policy decision; important comparisons require replicas or explicit uncertainty.
 
 ## 1. Objective and proof boundary
 
-This study decides whether future evaluations of our own agent memory can trust one DeepSeek score or must require repeated runs and uncertainty reporting. It estimates how unstable the DeepSeek Hindsight pipeline is at the observed configuration and whether that instability is small or large relative to 25 verdicts; it does not rerun Gemini or claim an exact decomposition of the 5.0-point gap.
+This study finds that future evaluations of our own agent memory cannot treat one DeepSeek score as precise and should use repeated runs or explicit uncertainty for important comparisons. It estimates how unstable the DeepSeek Hindsight pipeline is at the observed configuration and whether that instability is small or large relative to 25 verdicts; it does not rerun Gemini or claim an exact decomposition of the 5.0-point gap.
 
 The measured path remains:
 
@@ -209,14 +209,46 @@ The launcher refuses existing selection/run state, profile state, or log; verifi
 
 ## 7. Failure and resume protocol
 
-A partial or failed paid run preserves every successful question as an immutable journal entry and never creates the final `run/s.json`.
+A partial or failed paid run preserves every successful question as an immutable journal entry and never creates the final `run/s.json`. The first new-55 attempt reached 51 journals before Hindsight's 300-second daemon idle timer cancelled four still-running retain requests; repair therefore operates on four complete question units, not on selected inner batches.
 
 - Never delete a Hindsight bank or profile.
 - Never overwrite the candidate, pilot summary, selection manifest, log, journal entry, attestation, or final result.
 - On HTTP 500, completion failure, document mismatch, model drift, or daemon shutdown failure, stop and retain the log plus partial artifacts.
 - Derive completed units from valid terminal result records bound to the frozen manifest, not from process exit or non-empty output.
-- Do not rerun the one-line launcher after failure. Inspect the immutable journal and traces first, then build a failure-specific `-repair1` command that selects only missing/invalid IDs in a new profile.
+- Do not rerun the one-line launcher after failure. Inspect the immutable journal and traces first, then use a failure-specific command that selects only missing or invalid IDs in a new profile.
 - The initial launcher deliberately does not guess a generic recovery action before the failure class is known; a repaired result may be merged only after proving exactly 55 selected IDs, with repaired records replacing only their failed counterparts.
+
+### 7.1 Repair-4 execution flow
+
+Repair-4 keeps the original profile, database, 51 journals, three traces, preflight, and failure log read-only. It uses one new paid profile with four isolated banks plus a separate fresh canary profile, and disables daemon auto-exit because a synchronous retain request may legitimately run for more than five minutes.
+
+The repair launcher performs these steps in order:
+
+1. Re-derive the frozen selection and prove that the only absent journals are `5c40ec5b`, `1568498a`, `f685340e`, and `18dcd5a5` at original ordinals 1, 16, 26, and 43.
+2. Validate the other 51 journal objects, retrieval identities, 51 answer/judge completion pairs, and 329 successful retain-batch identities; hash those journals, original traces, preflight, selection, main failure log, and original daemon log into a create-only repair plan. Record the original database path without starting, querying, or hashing that database. Every retrieved document and chunk identity must belong to the question's expected document set; Hindsight may omit candidate chunk bodies beyond its chunk-token budget, so absence from the returned `chunks` map is not treated as cross-bank contamination.
+3. Load the real runtime configuration, set `HINDSIGHT_EMBED_DAEMON_IDLE_TIMEOUT=0`, probe DeepSeek Pro and Flash, and run a one-document patched-Hindsight canary in a fresh profile.
+4. Run exactly four queries with 189 documents and 26 synchronous retain batches in a second fresh profile. Stop and verify the daemon before publishing repair attestation or result files.
+5. Validate all four document sets, retrieval IDs, retain receipts, answer/judge traces, extraction trace, model identities, request IDs, usage, source hashes, and code hashes; then publish the repair attestation followed by its four-result `s.json`. If the process stops after complete journals and traces but before that attestation, an offline seal deterministically reconstructs it from those immutable artifacts and the stopped-profile proof without another model call.
+6. Revalidate every hash from the repair plan and repair attestation. Build a version-2 composite attestation with separate original and repair components; the original failed Hindsight completion trace is hash-bound failure provenance, while only the original 329 complete-question retain receipts and 51 scoped answer/judge pairs are accepted as clean evidence.
+7. Run an offline-only, restart-safe finalize: create or byte-verify the composite attestation, create or byte-verify the four missing canonical journal paths, and publish or byte-verify the deterministic `run/s.json` last as the commit marker. Existing but different bytes fail closed; the paid `run` command itself is never replayed.
+8. Run the Section 8 analysis against the attested composite and create `analysis.json` plus `analysis.md` without further model calls.
+
+The original retain trace contains 343 successful batch identities, but 14 belong to abandoned partial banks for the four missing questions. The composite accepts only the 329 complete-question batch identities from the original run plus all 26 clean repair identities, yielding the required 355 without reusing partial-bank state.
+
+Run the repair and analysis pipeline:
+
+```bash
+./eval_analysis/run_deepseek_nondeterminism_repair_4.sh --confirm-supplier-versions
+```
+
+If the paid repair-4 phase fails, its log, plan, canary, profile, journals, and traces remain immutable; neither the original launcher nor the paid repair command is rerun under the same identity. If only sealing, finalize, or analysis is interrupted, resume the no-model phases directly; each verifies identical existing bytes:
+
+```bash
+uv run --locked python eval_analysis/deepseek_nondeterminism_repair4.py finalize
+uv run --locked python eval_analysis/deepseek_nondeterminism_repair4.py analyze
+```
+
+Do not rerun the shell launcher because its log is create-only and it intentionally begins at live preflight. A later paid recovery must select only the still-missing or invalid repair questions under a new suffix.
 
 ## 8. Analysis method
 
@@ -243,9 +275,32 @@ Report:
 
 One new observation per non-pilot question cannot support a precise confidence interval. The implementation therefore reports exact observed counts, the population-weighted point estimate, and the three pilot-substitution values without claiming a confidence interval.
 
-## 9. Sample adequacy and trust decision
+## 9. Observed result and decision
 
-The initial 60 unique questions are sufficient to produce a first DeepSeek noise estimate and can disprove single-run trustworthiness, but they may be insufficient to certify that one run is stable.
+Stage 1 shows material full-pipeline verdict instability: the new 55 changed from 30 baseline passes to 37 rerun passes through 9 verdict flips—eight recoveries and one regression. Population weighting does not turn these values into a causal share of the official-versus-local gap, but it does make the operational decision clear: a single DeepSeek run is directional evidence, not a precise score for close agent-memory comparisons.
+
+| Observation | Result |
+|---|---:|
+| New-error recoveries | 8/25 |
+| Correct-control regressions | 1/30 |
+| Raw verdict flips | 9/55 (16.4%) |
+| Raw signed change | +7 verdicts |
+| Population-weighted net drift | +9.325/458 verdicts (+2.04 pp) |
+| Population-weighted gross instability | 21.325/458 verdicts (4.66 pp) |
+| Net scale versus the 25-verdict gap | 0.373 |
+| Gross scale versus the 25-verdict gap | 0.853 |
+
+The three pilot-replica substitutions keep net drift between 8.658 and 10.658 verdicts and gross instability between 20.658 and 22.658 verdicts. The direction is therefore not an artifact of choosing one of the three pilot replicas, although the one-observation-per-new-question design still does not support a confidence interval.
+
+Repair-4 restored the four missing observations without adding extra sample weight: all 26 retain batches succeeded and its two sampled errors recovered while its two correct controls remained correct.
+
+The result answers the cost decision but not causal attribution. It measures the full configured path—DeepSeek-backed Hindsight extraction and recall, DeepSeek answer generation, and DeepSeek judging—so `0.373` and `0.853` are signed and gross scale comparisons with the 25-verdict gap, not percentages of that gap caused by nondeterminism.
+
+The authoritative derived artifacts are local create-only files at `eval_analysis/nondeterminism-results/deepseek-nondeterminism-20260822-55a/analysis.json` and `analysis.md`; their hashes are bound by the composite attestation and they are intentionally not repository links.
+
+## 10. Sample adequacy and trust decision
+
+The 60 unique questions and 70 rerun observations are sufficient to reject single-run trustworthiness because material flipping was observed in both directions. They are not sufficient to estimate a narrow confidence interval or certify an exact variance for every question type, but greater precision would not change the current policy decision.
 
 - The 30 sampled errors estimate recovery; the 30 controls estimate regression.
 - At the worst-case rate near 50%, a simple 30-observation binomial proportion has a 95% uncertainty scale of roughly ±18 percentage points before weighting.
@@ -253,17 +308,17 @@ The initial 60 unique questions are sufficient to produce a first DeepSeek noise
 - The pilot's repeated observations improve the within-question estimate for five errors only; they do not increase the number of represented questions.
 - Deterministic stratification and population weighting reduce avoidable selection distortion but cannot replace more independent questions or replicas.
 
-Use raw flips, the population-weighted net/gross estimates, and the three pilot substitutions together. Clear material flipping is enough to reject single-run trustworthiness; low observed flipping is only an inconclusive approximation, because even zero regressions among 30 controls has a usual one-sided 95% zero-event upper-bound scale near 10%, or about 39 of the 415 eligible correct questions.
+Use raw flips, the population-weighted net/gross estimates, and the three pilot substitutions together. The observed material flipping rejects single-run trustworthiness; the small control sample still limits the precision of the regression-rate estimate, so the study does not claim an exact whole-benchmark variance.
 
-## 10. Adaptive extension
+## 11. Adaptive extension
 
-Stage 1 is worth running as calibration for future agent-memory evaluations, but an extension is worth funding only when greater precision could change the evaluation policy.
+Stage 1 selects the predeclared **clearly untrustworthy** outcome, so Stage 2 is not planned: more paid samples would refine the number but would not change the requirement for replicas or uncertainty reporting. The extension design remains available only if a later project needs a narrower quantitative variance estimate for a different decision.
 
 The full 500-question run was approximately CNY 1,600, so a simple linear estimate puts Stage 1's 55 new questions near CNY 176. This is planning scale, not a quote: question lengths, extraction volume, retries, and off-peak pricing can change actual cost. Record the supplier dashboard before and after every paid stage.
 
-After Stage 1, choose exactly one cost outcome:
+The predeclared cost outcomes were:
 
-1. **Clearly untrustworthy:** stop and publish the approximation; more samples are unnecessary for that policy decision.
+1. **Clearly untrustworthy — selected:** stop and publish the approximation; more samples are unnecessary for that policy decision.
 2. **Inconclusive, but cost control matters more than certifying one-run stability:** stop and label the result `cost-limited`; future important comparisons require replicas or uncertainty reporting.
 3. **Inconclusive, and permitting future single-run evaluation would materially reduce ongoing cost:** offer the next deterministic batch and wait for explicit cost approval.
 
@@ -271,30 +326,30 @@ When extension is justified, enlarge the sample by continuing the same frozen ha
 
 | Stage | Newly paid questions | Cumulative unique questions | Decision |
 |---|---:|---:|---|
-| Stage 1 | 25 errors + 30 controls = 55 | 60, including pilot five | Run after the initial cost gate. |
-| Stage 2 | remaining 13 eligible errors + next 30 controls = 43 | 103 | Run only under outcome 3 and after explicit cost approval. |
+| Stage 1 | 25 errors + 30 controls = 55 | 60, including pilot five | Completed; stop for the current trust-policy decision. |
+| Stage 2 | remaining 13 eligible errors + next 30 controls = 43 | 103 | Not planned; requires a new precision objective and explicit cost approval. |
 | Stage 3+ | next 30 controls per stage | 133, 163, ... | Continue only while the trust decision remains inconclusive and the user approves each batch. |
 
 Stage 2 exhausts all 43 eligible errors, so later stages improve only the regression estimate over the much larger 415-question correct population. Never rerun a completed extension question merely to balance counts; repeated-question evidence is analyzed as a cluster, not as new independent questions.
 
 Stop when the trust decision is clear, the eligible control population is exhausted, or the user declines the next cost gate. If budget stops the sequence first, report the achieved interval and label the result `cost-limited`, not `sample-sufficient`.
 
-## 11. Acceptance gates
+## 12. Acceptance gates
 
 The study is publishable as an approximation only when every gate below passes.
 
 - Selection manifest matches both frozen SHA-256 values and contains 5 pilot, 25 new error, and 30 control IDs with no overlap.
-- The new run contains exactly 55 unique terminal results: 25 baseline failures and 30 baseline passes.
-- All 2,654 expected document IDs are present across the 55 isolated banks; all retrieval IDs stay inside the matching bank; and each of the 355 expected batch identities has exactly one successful synchronous terminal receipt.
-- Completion traces contain at least 55 answer and 55 judge successes, no failed terminal events, and no opaque SDK retry allowance.
+- The composite contains exactly 55 unique terminal results in frozen order: 25 baseline failures and 30 baseline passes, sourced from 51 original journals and four repair journals without overlap.
+- All 2,654 expected document IDs are covered across the accepted isolated banks; all retrieval IDs stay inside the matching bank; and the accepted receipts contain exactly 329 complete-question original batches plus 26 clean repair batches.
+- Accepted completion evidence contains 51 original and four repair answer/judge pairs, with no failed terminal events or opaque SDK retry allowance in those scoped calls.
 - Requested models, resolved models, supplier versions, thinking behavior, prompts, dataset, and Hindsight configuration match the frozen run.
-- The preflight patched-daemon canary has one confirmed document, one successful synchronous retain receipt, extraction/verification completion evidence, and a verified daemon stop.
+- The original and repair preflight patched-daemon canaries are each hash-bound and each has one confirmed document, one successful synchronous retain receipt, extraction/verification completion evidence, and a verified daemon stop.
 - The sidecar binds every result to answer/judge usage, request IDs, and prompt hashes, plus stable context, answer, raw-response, and source-document hashes.
 - The Hindsight daemon is stopped after success or failure.
 - Candidate and pilot evidence hashes are unchanged after the run.
 - Analysis exposes raw counts, the declared population-weighted estimate, three pilot sensitivity estimates, and the no-confidence-interval limitation.
 
-## 12. Outputs and ownership
+## 13. Outputs and ownership
 
 All new state is create-only and study-scoped, leaving the paid 500-question result unchanged.
 
@@ -315,10 +370,22 @@ eval_analysis/nondeterminism-results/deepseek-nondeterminism-20260822-55a/
   analysis.json
   analysis.md
 
+  repair-4/plan.json
+  repair-4/preflight.json
+  repair-4/preflight-canary/retain-batches.jsonl
+  repair-4/preflight-canary/hindsight-completions.jsonl
+  repair-4/journal/001-5c40ec5b.json ... journal/004-18dcd5a5.json
+  repair-4/run/s.json
+  repair-4/run/retain-attestation.json
+  repair-4/run/retain-batches.jsonl
+  repair-4/run/omb-completions.jsonl
+  repair-4/run/hindsight-completions.jsonl
+
 run-artifacts/2028-0819->0822/
   longmemeval-hindsight-deepseek-nondeterminism-55.log
+  longmemeval-hindsight-deepseek-nondeterminism-repair-4.log
 ```
 
-The selection manifest owns membership, the run result owns the 55 new observations, the pilot summary owns the 15 prior observations, and `analysis.json` owns the combined derived estimates. No derived file becomes a replacement for `outputs/longmemeval/hindsight-deepseek/rag/s.json`.
+The selection manifest owns membership, the composite attestation owns the 51-plus-4 provenance boundary, the final run result owns the 55 new observations, the pilot summary owns the 15 prior observations, and `analysis.json` owns the combined derived estimates. No derived file becomes a replacement for `outputs/longmemeval/hindsight-deepseek/rag/s.json`.
 
 Related main report: [LongMemEval Hindsight DeepSeek reproduction summary](summary.md).

@@ -399,6 +399,25 @@ class PaidRunValidationTests(unittest.TestCase):
                 expected_document_ids={"q1-document"},
             )
 
+    def test_retrieval_isolation_accepts_an_omitted_same_bank_chunk_payload(self):
+        from deepseek_nondeterminism import validate_retrieval_isolation
+
+        result = _result("q1", "type-a", True)
+        result["raw_response"] = {
+            "results": [
+                {
+                    "document_id": "q1-document",
+                    "chunk_id": "profile_q1-document_7",
+                }
+            ],
+            "chunks": {},
+        }
+
+        validate_retrieval_isolation(
+            result,
+            expected_document_ids={"q1-document"},
+        )
+
     def test_retain_receipts_require_one_success_for_every_frozen_batch(self):
         from deepseek_nondeterminism import summarize_retain_receipts
 

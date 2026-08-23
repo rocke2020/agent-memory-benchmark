@@ -682,10 +682,9 @@ def validate_retrieval_isolation(
         if chunk_id is not None and (
             not isinstance(chunk_id, str)
             or document_id not in chunk_id
-            or chunk_id not in chunks
         ):
             raise RuntimeError(
-                f"foreign or missing chunk in retrieval for {result.get('query_id')}: "
+                f"foreign chunk in retrieval for {result.get('query_id')}: "
                 f"{chunk_id}"
             )
     for chunk_id, chunk in chunks.items():

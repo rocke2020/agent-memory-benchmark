@@ -197,6 +197,8 @@ The reusable report path is provider-agnostic; the repair path is deliberately f
 - `variance_trace.py`: completion metadata plus exact and identity-normalized retrieval hashes.
 - `deepseek_nondeterminism.py`: frozen 55-question selection, live role preflight, immutable paid-run journal, retain/completion attestations, and population-weighted analysis.
 - `run_deepseek_nondeterminism_55.sh`: one-line create-only launcher for selection → live preflight → paid run → offline analysis.
+- `deepseek_nondeterminism_repair4.py`: failure-specific four-question live preflight, create-only rerun, version-2 composite attestation, restart-safe offline finalize, and analysis.
+- `run_deepseek_nondeterminism_repair_4.sh`: one-line repair-4 launcher for live preflight → paid four-question run → offline finalize → offline analysis.
 - `evidence/`: committed redacted replay capsule with source hashes and clean-checkout verification commands.
 - `tests/`: offline report, comparison, isolation, attestation, and merge regression tests.
 - `vendor/amb-ui/`: official report bundles plus the offline entrypoint and system-theme override.
