@@ -142,7 +142,7 @@ The intended flows above are source-defined, but `agentic-rag` and CLI-selected 
 
 These limitations document the current checkout only. They do not change the distinction among retain, recall, and reflect, and this document does not propose or implement fixes.
 
-For the concrete five-role model stack used by the completed DeepSeek LongMemEval `rag` evaluation, see the [LongMemEval model inventory](../longmemeval/20260-0822/summary.md#5-complete-model-inventory-and-runtime-versions).
+For the concrete five-role model stack used by the completed DeepSeek LongMemEval `rag` evaluation, see the [LongMemEval model inventory](../longmemeval/20260-0822/summary.md#6-complete-model-inventory-and-runtime-versions).
 
 ## Authoritative source map
 

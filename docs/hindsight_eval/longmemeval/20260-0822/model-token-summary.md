@@ -29,7 +29,7 @@ All executed model-producing and model-scoring paths close over the five roles b
 
 This inventory is complete for the documented `mode=rag` path, not for every capability Hindsight can expose. AMB used retain and one recall per question, then final answer and judge calls; it did not invoke Hindsight `reflect` or the `agentic-rag` planner. Banks were created with observations disabled, so no consolidation-model execution belongs to this run. BM25, graph/temporal retrieval, Reciprocal Rank Fusion, date parsing, and `cl100k_base` tokenization are not additional model roles.
 
-The 500-result JSON directly records only the answer and judge identities. Hindsight extraction, embedding, and reranker identities are attested by the redacted configuration closure and captured daemon/preflight logs; exact local model weight revisions were not preserved. See the [full comparison summary](summary.md#5-complete-model-inventory-and-runtime-versions) and [reproduction guide](94.6-reproduction.md#6-configure-the-deepseek-roles-and-local-retrieval-models).
+The 500-result JSON directly records only the answer and judge identities. Hindsight extraction, embedding, and reranker identities are attested by the redacted configuration closure and captured daemon/preflight logs; exact local model weight revisions were not preserved. See the [full comparison summary](summary.md#6-complete-model-inventory-and-runtime-versions) and [reproduction guide](94.6-reproduction.md#6-configure-the-deepseek-roles-and-local-retrieval-models).
 
 ## 2. Supplier, cost, request, and token records
 
