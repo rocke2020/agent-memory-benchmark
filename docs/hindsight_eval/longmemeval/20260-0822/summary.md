@@ -1,6 +1,6 @@
 # LongMemEval Hindsight DeepSeek reproduction summary
 
-> **TL;DR:** Our matched 500-question run scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**; a cost-bounded DeepSeek calibration then observed 9 verdict flips in 55 new questions and an estimated 4.66-point gross instability scale on the clean frame, so one DeepSeek full-pipeline score is not precise enough for close memory comparisons, while the 5-point official gap still cannot be causally split between nondeterminism and the DeepSeek-versus-Gemini model-stack change.
+> **TL;DR:** Our matched 500-question run scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**; a cost-bounded DeepSeek calibration then observed 9 verdict flips in 55 new questions, an estimated 2.04 pp net score-drift scale, and 4.66 pp of gross verdict instability on the clean frame. Operationally, a one-run difference around 2 pp cannot reliably rank two memory systems, while the 5-point official gap still cannot be causally split between nondeterminism and the DeepSeek-versus-Gemini model-stack change.
 
 ## 1. Headline result
 
@@ -115,7 +115,7 @@ The completed cost-bounded follow-up combines the five pilot errors' three repli
 
 After averaging replicas within each pilot question and weighting question-type rates back to the 458-question clean frame, the estimate is **+9.325 net verdicts (2.04 pp)** and **21.325 gross unstable verdicts (4.66 pp)**. These are respectively `0.373` and `0.853` times the 25-verdict official gap as scale comparisons, not causal shares of that gap; the pilot-replica sensitivity range remains material at 8.658–10.658 net and 20.658–22.658 gross verdicts.
 
-The operational conclusion is clear enough to stop: a single DeepSeek run may be useful as directional evidence, but important comparisons that could turn on a few verdicts require replicas or explicit uncertainty. No Stage 2 spend is planned for this trust-policy decision; the full proof boundary, Repair-4 provenance, weighting method, sensitivity analysis, and future optional extension are in the [DeepSeek nondeterminism result and runbook](deepseek-non-deterimination.md).
+The operational conclusion is clear enough to stop: as an engineering shorthand, Round 1 and Round 2 of a full DeepSeek evaluation may differ by roughly 2 percentage points in final accuracy. This does not mean every pair will differ by exactly 2 pp, and it is not a standard deviation or confidence bound; it means that a one-run gap around 2 pp should remain unresolved. A single run is still useful for directional screening, but any comparison that could turn on such a small gap requires replicas or explicit uncertainty. No Stage 2 spend is planned for this trust-policy decision; the full proof boundary, Repair-4 provenance, weighting method, sensitivity analysis, and future optional extension are in the [DeepSeek nondeterminism result and runbook](deepseek-non-deterimination.md).
 
 ## 8. Reusable artifacts
 

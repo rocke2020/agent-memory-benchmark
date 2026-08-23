@@ -13,3 +13,4 @@ data/tempo/
 .env*.local
 .blob_manifest.json
 /run-artifacts
+/eval_analysis/nondeterminism-results

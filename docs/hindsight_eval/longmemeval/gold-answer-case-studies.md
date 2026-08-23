@@ -1,13 +1,15 @@
 # LongMemEval gold-answer case studies
 
-> **TL;DR:** For question `6d550036`, the dataset's gold answer of `2` is defensible only under a narrow "lead a team" interpretation; the more natural "lead or own a project" interpretation supports **3**, and the declared `answer_session_ids` are incomplete and noisy because they omit the strongest current team-lead session. This ambiguity does not change the official-versus-local score gap because both runs failed the case.
+> **TL;DR:** Question `6d550036` has an ambiguous project count: `2` is defensible only under a narrow team-leading interpretation, while ordinary project-leading semantics support **3**, and its declared evidence sessions are incomplete and noisy. Question `51a45a95` most likely intends **Target**, but the user never directly says the coupon was redeemed there; its evidence session is correct, while its turn-level `has_answer` annotation omits the Target-bearing turn needed to answer where.
 
 ## Terms
 
-These terms keep the answer value, its supporting sessions, and the interpretation of leadership separate.
+These terms distinguish an answer value, its supporting sessions and turns, and any interpretation needed to connect them.
 
-- **Gold answer**: the expected answer used by the benchmark judge; here it is `2`.
+- **Gold answer**: the expected answer used by the benchmark judge.
 - **Gold evidence**: the raw sessions named by `answer_session_ids` as support for the gold answer.
+- **Turn-level evidence**: turns marked with `has_answer: true` for turn-level retrieval evaluation.
+- **Contextually inferred gold**: an answer implied by nearby turns but not directly stated in the turn describing the queried event.
 - **Team-leading interpretation**: count a project only when the user leads people working on it.
 - **Project-leading interpretation**: count a project when the user owns or directs it, including a solo project.
 
@@ -104,3 +106,67 @@ For published-score reproduction, retain the dataset's original `2` so results r
 - Report the case as `gold-ambiguous`; do not attribute its failure solely to retrieval, answer-model quality, or judge quality.
 
 Related analysis: [LongMemEval Hindsight DeepSeek reproduction summary](20260-0822/summary.md).
+
+## 7. Case 2 verdict: `51a45a95`
+
+The dataset's answer **Target** is the intended and most plausible session-level answer, but it is not directly entailed by a user statement. This case should remain unchanged for official-score reproduction and be classified as contextually inferred or weakly grounded in annotation-quality analysis.
+
+| Field | Value |
+|---|---|
+| Question | Where did I redeem a $5 coupon on coffee creamer? |
+| Question date | 2023/05/30 (Tue) 20:42 |
+| Question type | `single-session-user` |
+| Dataset gold | `Target` |
+| Declared gold evidence | `answer_d61669c7` |
+| Recommended adjudication | Retain `Target` for reproduction; flag as weakly grounded for data-quality analysis |
+| Case classification | Contextually inferred gold and incomplete turn-level evidence |
+
+The user discusses Target immediately before and after describing the coupon redemption, so Target is the natural conversational resolution. However, the user never says "I redeemed the coupon at Target," leaving another retailer logically possible.
+
+## 8. Source and review method
+
+The review scanned all 50 sessions in this question's immutable raw S-split history, then reconstructed the declared evidence session in turn order. Exact anchor checks found every relevant user mention in `answer_d61669c7`, and the human-readable polished record matched the raw record after its session wrappers were removed.
+
+- Source: `datasets/longmemeval-cleaned/longmemeval_s_cleaned.json` in the parent evaluation workspace.
+- Selection: `question_id == "51a45a95"`.
+- Declared evidence resolution: `answer_d61669c7` occurs exactly once, as the 43rd of 50 sessions.
+- Unique anchor location: `coffee creamer`, `$5 coupon`, `redeemed`, user coupon mentions, and user mentions of `Target` all resolve only to `answer_d61669c7` within this question's haystack.
+- Guardrail: assistant interpretations are secondary evidence and cannot create an unstated user fact.
+
+No other haystack session supplies an alternate redemption location or another occurrence of the queried coupon event. The ambiguity is therefore inside the declared evidence session, not a conflict between competing sessions.
+
+## 9. Raw-history evidence
+
+The session strongly suggests Target through conversational continuity, but the location and redemption event appear in separate user turns. The only explicit bridge is the assistant's interpretation, followed by a user response that continues discussing Target without confirming the coupon's location.
+
+| Turn | Role | `has_answer` | Raw evidence | Judgment |
+|---|---|---:|---|---|
+| 3 | User | `false` | "I've been using the Cartwheel app from Target" | Supplies the only user-stated store context for the later coupon event. |
+| 5 | User | `true` | "I actually redeemed a $5 coupon on coffee creamer last Sunday" | Supplies the redemption event but does not name a store. |
+| 6 | Assistant | `false` | "Many retailers, like Target, send exclusive coupons" and asks how often the user shops at Target | Makes the Target inference explicit, but assistant-generated interpretation is not an independent user fact. |
+| 7 | User | `false` | "I shop at Target pretty frequently" | Continues the Target topic without correcting the assistant, but still does not link this coupon to Target. |
+
+Reading the complete session as ordinary conversation supports Target: the user introduces Target's Cartwheel app, describes a coupon redemption, accepts the assistant's Target-focused continuation, and gives more Target-shopping detail. Reading only explicit propositions does not prove the redemption location because the decisive relation, "redeemed at Target," is never stated.
+
+## 10. Evidence-label defect
+
+The session-level `answer_session_ids` declaration is correct because `answer_d61669c7` contains both the Target context and the coupon event. The turn-level annotation is incomplete because its sole `has_answer: true` turn contains no location and therefore cannot independently support the gold answer.
+
+A turn-level retriever following the current label receives the coupon turn but not the earlier Target-bearing user turn. To support the existing gold answer in a curated derivative dataset, both user turns are required evidence:
+
+```text
+Turn 3: Cartwheel app from Target
+Turn 5: redeemed a $5 coupon on coffee creamer
+```
+
+Marking only Turn 5 as answer-bearing conflates evidence for the event with evidence for the requested attribute of that event. This defect can penalize a retriever that correctly needs both turns to answer where.
+
+## 11. Adjudication
+
+Official reproduction should preserve **Target** and the original dataset bytes, while interpretation-sensitive analysis should disclose that the answer is contextual rather than explicit. This avoids silently changing the benchmark while preventing the case from being presented as cleanly grounded evidence.
+
+- Retain `Target` when reproducing published or comparable LongMemEval scores.
+- Accept `Target` as the best natural-language answer when the full evidence session is available.
+- Treat an abstaining answer such as "the session does not explicitly say" as evidence-sensitive rather than automatically diagnosing a memory-system failure.
+- Classify the case as `gold-ambiguous` or `weakly-grounded` in dataset-quality reports.
+- In a separately curated dataset, either rewrite the evidence to state the store directly or mark both the Target context and coupon event as answer-bearing turns.

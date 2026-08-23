@@ -2,7 +2,7 @@
 
 **Terms:** The **candidate** is our frozen 448/500 DeepSeek result. The **pilot five** are five candidate errors already rerun three times. The **new 55** are 25 additional errors plus 30 originally correct controls that each contribute one terminal observation. **Repair-4** is the failure-specific rerun of the four new-55 questions that did not produce journals in the first paid attempt. A **composite result** combines immutable results from more than one create-only profile while preserving a hash-bound source attestation for every question. A **recovery** is original fail → rerun pass; a **regression** is original pass → rerun fail. A **create-only bank** is a new Hindsight bank that must not overwrite or delete earlier benchmark state.
 
-> **TL;DR:** Stage 1 observed 8 recoveries and 1 regression in the new 55 questions; after population weighting and combining the pilot five, the estimated gross instability is 21.325 verdicts across the 458-question clean frame, while signed net drift is +9.325 verdicts. This is enough to reject a single DeepSeek full-pipeline score as a precise basis for future in-house memory comparisons, so no cost extension is needed for that policy decision; important comparisons require replicas or explicit uncertainty.
+> **TL;DR:** Stage 1 observed 8 recoveries and 1 regression in the new 55 questions; after population weighting and combining the pilot five, the estimated gross instability is 21.325 verdicts across the 458-question clean frame, while signed net drift is +9.325 verdicts. As a cost-bounded engineering heuristic, separate full DeepSeek evaluations may differ at roughly a 2 pp net score scale, so a one-run gap around 2 pp cannot reliably rank two memory systems; important comparisons require replicas or explicit uncertainty, and no cost extension is needed for that policy decision.
 
 ## 1. Objective and proof boundary
 
@@ -277,7 +277,7 @@ One new observation per non-pilot question cannot support a precise confidence i
 
 ## 9. Observed result and decision
 
-Stage 1 shows material full-pipeline verdict instability: the new 55 changed from 30 baseline passes to 37 rerun passes through 9 verdict flips—eight recoveries and one regression. Population weighting does not turn these values into a causal share of the official-versus-local gap, but it does make the operational decision clear: a single DeepSeek run is directional evidence, not a precise score for close agent-memory comparisons.
+Stage 1 shows material full-pipeline verdict instability: the new 55 changed from 30 baseline passes to 37 rerun passes through 9 verdict flips—eight recoveries and one regression. Population weighting does not turn these values into a causal share of the official-versus-local gap, but it does make the operational decision clear: when two memory systems differ by only about 2 pp, one DeepSeek run cannot reliably determine which is better. A single run remains useful for directional screening, not for precise small-gap ranking.
 
 | Observation | Result |
 |---|---:|
@@ -289,6 +289,8 @@ Stage 1 shows material full-pipeline verdict instability: the new 55 changed fro
 | Population-weighted gross instability | 21.325/458 verdicts (4.66 pp) |
 | Net scale versus the 25-verdict gap | 0.373 |
 | Gross scale versus the 25-verdict gap | 0.853 |
+
+The practical shorthand is that Round 1 and Round 2 of a full DeepSeek evaluation may differ by roughly 2 percentage points in final accuracy. This is a scale estimate from the observed weighted net drift, not a claim that every pair of runs will differ by exactly 2 pp, nor an estimate of mean absolute run-to-run difference, standard deviation, or a confidence bound; the next pair may move less, more, or in the opposite direction. Gross instability of 4.66 pp means that many verdicts may flip in both directions and cancel, not that the final score itself must move by 4.66 pp.
 
 The three pilot-replica substitutions keep net drift between 8.658 and 10.658 verdicts and gross instability between 20.658 and 22.658 verdicts. The direction is therefore not an artifact of choosing one of the three pilot replicas, although the one-observation-per-new-question design still does not support a confidence interval.
 
