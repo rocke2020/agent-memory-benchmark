@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 EVAL_ANALYSIS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(EVAL_ANALYSIS_DIR))
@@ -33,6 +34,39 @@ def _write_journal(path, result):
 
 
 class StrictPartialJournalTests(unittest.TestCase):
+    def test_recorded_code_provenance_survives_a_post_run_commit(self):
+        from deepseek_nondeterminism_repair4 import (
+            validate_recorded_repair_code_provenance,
+        )
+
+        recorded = {
+            "code_sha256": {"repair.py": "a" * 64},
+            "git_head": "paid-run-head",
+        }
+        validate_recorded_repair_code_provenance(
+            recorded,
+            dict(recorded),
+            dict(recorded),
+        )
+        with patch(
+            "deepseek_nondeterminism_repair4._repair_code_hashes",
+            return_value={"repair.py": "b" * 64},
+        ):
+            with self.assertRaisesRegex(ValueError, "current code"):
+                validate_recorded_repair_code_provenance(
+                    recorded,
+                    dict(recorded),
+                    require_current_code_hashes=True,
+                )
+
+        drifted = {**recorded, "git_head": "different-head"}
+        with self.assertRaisesRegex(ValueError, "provenance"):
+            validate_recorded_repair_code_provenance(
+                recorded,
+                dict(recorded),
+                drifted,
+            )
+
     def test_bound_dataset_path_avoids_default_cache_and_restores_environment(self):
         from deepseek_nondeterminism_repair4 import _bound_dataset_path
 
@@ -77,6 +111,27 @@ class StrictPartialJournalTests(unittest.TestCase):
 
 
 class RepairMergeTests(unittest.TestCase):
+    def test_repair_result_publish_validates_envelope_before_writing(self):
+        from deepseek_nondeterminism_repair4 import _publish_repair_result_if_needed
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result_path = Path(tmp) / "run" / "s.json"
+            with (
+                patch(
+                    "deepseek_nondeterminism_repair4._repair_result_path",
+                    return_value=result_path,
+                ),
+                patch(
+                    "deepseek_nondeterminism_repair4._validate_repair_envelope",
+                    side_effect=ValueError("recorded code provenance drifted"),
+                    create=True,
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "provenance"):
+                    _publish_repair_result_if_needed(Path(tmp), "study")
+
+            self.assertFalse(result_path.exists())
+
     def test_offline_finalize_reuses_identical_json_and_rejects_drift(self):
         from deepseek_nondeterminism_repair4 import write_json_create_or_verify
 

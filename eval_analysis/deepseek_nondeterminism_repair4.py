@@ -199,6 +199,31 @@ def _require_sha256(value: Any, label: str) -> None:
         raise ValueError(f"{label} SHA-256 is invalid")
 
 
+def validate_recorded_repair_code_provenance(
+    plan: dict[str, Any],
+    preflight: dict[str, Any],
+    attestation: dict[str, Any] | None = None,
+    *,
+    require_current_code_hashes: bool = False,
+) -> None:
+    code_sha256 = plan.get("code_sha256")
+    git_head = plan.get("git_head")
+    if (
+        not isinstance(code_sha256, dict)
+        or not code_sha256
+        or not isinstance(git_head, str)
+    ):
+        raise ValueError("repair-4 recorded code provenance is incomplete")
+    for record in (preflight, attestation):
+        if record is not None and (
+            record.get("code_sha256") != code_sha256
+            or record.get("git_head") != git_head
+        ):
+            raise ValueError("repair-4 recorded code provenance drifted")
+    if require_current_code_hashes and _repair_code_hashes() != code_sha256:
+        raise ValueError("repair-4 current code differs from recorded provenance")
+
+
 def validate_repair_attestation(
     attestation: dict[str, Any],
     plan: dict[str, Any],
@@ -831,8 +856,11 @@ def _validate_repair_preflight_for_run(
     data_path = _load_environment_for_repair()
     if preflight.get("runtime_config") != _redacted_runtime_config():
         raise ValueError("repair-4 runtime configuration changed after preflight")
-    if preflight.get("code_sha256") != _repair_code_hashes():
-        raise ValueError("repair-4 code changed after preflight")
+    validate_recorded_repair_code_provenance(
+        plan,
+        preflight,
+        require_current_code_hashes=True,
+    )
     if preflight.get("git_head") != _git_head():
         raise ValueError("repair-4 git HEAD changed after preflight")
     study.validate_live_model_probes(preflight.get("live_model_probes"))
@@ -1120,39 +1148,31 @@ def command_run(args: argparse.Namespace) -> Path:
     return repair_result_path
 
 
-def _validate_repair_component(
+def _validate_repair_envelope(
     analysis_root: Path,
     study_id: str,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     plan_path = _plan_path(analysis_root, study_id)
     preflight_path = _repair_preflight_path(analysis_root, study_id)
     attestation_path = _repair_attestation_path(analysis_root, study_id)
-    result_path = _repair_result_path(analysis_root, study_id)
     plan = study._load_json_object(plan_path)
     preflight = study._load_json_object(preflight_path)
     attestation = study._load_json_object(attestation_path)
-    artifact = load_amb_result(result_path)
     _validate_original_plan_artifacts(plan)
     validate_repair_attestation(attestation, plan)
+    validate_recorded_repair_code_provenance(plan, preflight, attestation)
     if (
         attestation.get("plan_sha256") != _sha256(plan_path)
         or attestation.get("preflight_sha256") != _sha256(preflight_path)
-        or attestation.get("result_file_sha256") != _sha256(result_path)
         or preflight.get("plan_sha256") != _sha256(plan_path)
         or preflight.get("code_sha256") != attestation.get("code_sha256")
         or preflight.get("git_head") != attestation.get("git_head")
         or preflight.get("profile") != attestation.get("profile")
+        or attestation.get("source_sha256") != plan.get("source_sha256")
     ):
         raise ValueError("repair-4 component hash or identity drifted")
     study.validate_live_model_probes(preflight.get("live_model_probes"))
     _validate_repair_canary(preflight)
-    if _repair_code_hashes() != attestation["code_sha256"]:
-        raise ValueError("repair-4 code hash differs from the paid component")
-    if _git_head() != attestation["git_head"]:
-        raise ValueError("repair-4 git HEAD differs from the paid component")
-    result_by_id = study._result_by_query_id(artifact)
-    if tuple(result_by_id) != REPAIR_QUERY_IDS:
-        raise ValueError("repair-4 result order or membership drifted")
     for query_id, path_value in attestation["repair_journal_paths"].items():
         if _sha256(Path(path_value)) != attestation["repair_journal_sha256"][query_id]:
             raise ValueError(f"repair-4 journal hash drifted: {query_id}")
@@ -1164,6 +1184,24 @@ def _validate_repair_component(
         trace = attestation[trace_field]
         if _sha256(Path(trace["path"])) != trace["sha256"]:
             raise ValueError(f"repair-4 {trace_field} hash drifted")
+    return plan, preflight, attestation
+
+
+def _validate_repair_component(
+    analysis_root: Path,
+    study_id: str,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    plan, preflight, attestation = _validate_repair_envelope(
+        analysis_root,
+        study_id,
+    )
+    result_path = _repair_result_path(analysis_root, study_id)
+    artifact = load_amb_result(result_path)
+    if attestation.get("result_file_sha256") != _sha256(result_path):
+        raise ValueError("repair-4 result hash drifted")
+    result_by_id = study._result_by_query_id(artifact)
+    if tuple(result_by_id) != REPAIR_QUERY_IDS:
+        raise ValueError("repair-4 result order or membership drifted")
     return plan, preflight, attestation, artifact
 
 
@@ -1171,19 +1209,14 @@ def _publish_repair_result_if_needed(analysis_root: Path, study_id: str) -> None
     result_path = _repair_result_path(analysis_root, study_id)
     if result_path.exists():
         return
-    plan = study._load_json_object(_plan_path(analysis_root, study_id))
-    attestation = study._load_json_object(
-        _repair_attestation_path(analysis_root, study_id)
+    plan, _, attestation = _validate_repair_envelope(
+        analysis_root,
+        study_id,
     )
-    validate_repair_attestation(attestation, plan)
-    _validate_original_plan_artifacts(plan)
     repair_results = {
         query_id: study._load_json_object(Path(path_value))
         for query_id, path_value in attestation["repair_journal_paths"].items()
     }
-    for query_id, path_value in attestation["repair_journal_paths"].items():
-        if _sha256(Path(path_value)) != attestation["repair_journal_sha256"][query_id]:
-            raise ValueError(f"repair-4 journal hash drifted: {query_id}")
     artifact = _build_repair_artifact(repair_results, study_id)
     if study._json_file_sha256(artifact) != attestation["result_file_sha256"]:
         raise ValueError("repair-4 reconstructed result hash drifted")
@@ -1198,10 +1231,13 @@ def _seal_repair_if_needed(analysis_root: Path, study_id: str) -> None:
     preflight_path = _repair_preflight_path(analysis_root, study_id)
     plan = study._load_json_object(plan_path)
     preflight = study._load_json_object(preflight_path)
+    validate_recorded_repair_code_provenance(
+        plan,
+        preflight,
+        require_current_code_hashes=True,
+    )
     if (
         preflight.get("plan_sha256") != _sha256(plan_path)
-        or preflight.get("code_sha256") != _repair_code_hashes()
-        or preflight.get("git_head") != _git_head()
         or preflight.get("profile") != plan.get("repair_profile")
         or preflight.get("daemon_idle_timeout_seconds") != 0
     ):
