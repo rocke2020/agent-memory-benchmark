@@ -1,18 +1,18 @@
 # LongMemEval Hindsight DeepSeek reproduction summary
 
-> **TL;DR:** Our matched 500-question run scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**; a cost-bounded DeepSeek calibration then observed 9 verdict flips in 55 new questions, an estimated 2.04 pp net score-drift scale, and 4.66 pp of gross verdict instability on the clean frame. Operationally, a one-run difference around 2 pp cannot reliably rank two memory systems, while the 5-point official gap still cannot be causally split between nondeterminism and the DeepSeek-versus-Gemini model-stack change.
+> **TL;DR:** Our matched 500-question run scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**; a cost-bounded DeepSeek calibration then observed 9 verdict flips in 55 new questions, an estimated 2.04 pp net score-drift scale, and 4.66 pp of gross verdict instability on the clean frame. The measured pipeline had **five model roles but four distinct configured model names**: DeepSeek Flash performed Hindsight extraction and AMB judging, local BGE produced embeddings, local MiniLM reranked recall candidates, and DeepSeek Pro generated final answers. Operationally, a one-run difference around 2 pp cannot reliably rank two memory systems, while the 5-point official gap still cannot be causally split between nondeterminism and the DeepSeek-versus-Gemini model-stack change.
 
 ## 1. Headline result
 
 The reproduction is a complete 500-result evaluation over the same questions, gold answers, and metadata, with a score 5.0 percentage points below the official result.
 
-| Result | Correct | Accuracy | Hindsight / answer / judge |
+| Result | Correct | Accuracy | Extraction / answer / judge LLMs |
 |---|---:|---:|---|
 | [Official Hindsight](https://agentmemorybenchmark.ai/run/outputs%2Flongmemeval%2Fhindsight%2Frag%2Fs.json.gz?id=e47becba) | 473/500 | 94.6% | Gemini 2.5 Flash Lite / Gemini 3.1 Pro Preview / Gemini 2.5 Flash Lite |
 | Our local DeepSeek run | 448/500 | 89.6% | DeepSeek V4 Flash 0731 / DeepSeek V4 Pro 0813 / DeepSeek V4 Flash 0731 |
 | Difference | -25 | -5.0 pp | Not a model-only A/B test |
 
-The public result artifact records the official answer and judge models, while the [official catalog at the frozen baseline](https://github.com/vectorize-io/agent-memory-benchmark/blob/decbb07f4f9899deac28a76293564cf263872652/catalog.json#L81-L87) specifies Gemini 2.5 Flash Lite as embedded Hindsight's extraction model; the artifact does not independently attest that internal runtime field.
+This headline table is LLM-only; Sections 4 and 5 close the inventory over the embedding and reranker roles as well. The public result artifact records the official answer and judge models, while the [official catalog at the frozen baseline](https://github.com/vectorize-io/agent-memory-benchmark/blob/decbb07f4f9899deac28a76293564cf263872652/catalog.json#L81-L87) specifies Gemini 2.5 Flash Lite as embedded Hindsight's extraction model; the artifact does not independently attest that internal runtime field.
 
 Three Hindsight retain batches returned HTTP 500; resume-4 later reran those three complete question units successfully and left the overall score at 448/500.
 
@@ -25,7 +25,7 @@ The report's **Ctx tokens** is the rounded mean of `results[].context_tokens`, w
 | Official | 21,812,237 | 43,624.474 | 43,624 |
 | Ours | 24,812,616 | 49,625.232 | 49,625 |
 
-This is not supplier billing usage: it excludes answer/judge outputs, Hindsight extraction calls, retries, and other prompt fields, so the supplier total of 743,356,436 tokens cannot be split retroactively from the saved evaluation artifact.
+This is not supplier billing usage: it excludes answer/judge outputs, Hindsight extraction calls, retries, and other prompt fields. The recorded all-original-supplier projection of 743,356,436 tokens also cannot be split retroactively by role from the saved evaluation artifact; see the [model and token usage summary](model-token-summary.md) for the measured segments, local-model accounting, and proof boundary.
 
 ## 3. Paired comparison
 
@@ -53,36 +53,40 @@ Gold answers are not infallible: audited case `6d550036` has a defensible gold o
 
 ## 4. Attribution boundary
 
-The 5-point gap must be analyzed against two unresolved contributor classes: full-pipeline LLM nondeterminism and the model-stack change across Hindsight memory extraction, final answer generation, and answer judging.
+The 5-point gap must be analyzed against two unresolved contributor classes: full-pipeline LLM nondeterminism and the three-role Gemini-to-DeepSeek LLM substitution. The complete retrieval-and-evaluation path has five model roles; the two local retrieval roles have the same nominal Hindsight v0.4.17 defaults in both columns, but only our run captured runtime evidence for them.
 
-Both runs follow the same model-selection principle, so the comparison preserves the role hierarchy even though it changes the model family:
-
-| Role | Official | Ours | Shared selection principle |
+| Model role | Official Hindsight reference | Our DeepSeek run | Evidence boundary |
 |---|---|---|---|
-| Hindsight memory extraction | Gemini 2.5 Flash Lite | DeepSeek V4 Flash | Use the lighter, lower-cost model for high-volume internal processing. |
-| Final answer generation | Gemini 3.1 Pro Preview | DeepSeek V4 Pro | Use the stronger model for the final synthesis task. |
-| Answer judging | Gemini 2.5 Flash Lite | DeepSeek V4 Flash | Use the lighter, lower-cost model for the constrained grading task. |
+| Hindsight memory extraction | `gemini-2.5-flash-lite` | `deepseek-v4-flash` | Official catalog configuration versus our configured alias and daemon extraction log; the official result artifact records neither extraction runtime nor its resolved model version. |
+| Hindsight embedding | v0.4.17 source default: local `BAAI/bge-small-en-v1.5` | local `BAAI/bge-small-en-v1.5`, 384 dimensions | The official result does not attest this default. Our daemon startup log attests provider, model name, and dimension, but not the exact Hugging Face weight revision. |
+| Hindsight cross-encoder reranking | v0.4.17 source default: local `cross-encoder/ms-marco-MiniLM-L-6-v2` | local `cross-encoder/ms-marco-MiniLM-L-6-v2` | The official result does not attest this default. Our daemon startup log attests provider and model name, but not the exact Hugging Face weight revision. |
+| Final answer generation | `gemini-3.1-pro-preview` | `deepseek-v4-pro` | Both result artifacts record the configured answer-model ID; the DeepSeek supplier's resolved suffix was inspected separately. |
+| Answer judging | `gemini-2.5-flash-lite` | `deepseek-v4-flash` | Both result artifacts record the configured judge-model ID; the DeepSeek supplier's resolved suffix was inspected separately. |
 
 - All 500 query IDs, questions, gold answers, and metadata match exactly.
 - Zero of 500 saved contexts are byte-identical between the two runs.
-- The intended model change covers the complete LLM stack, not only the answer model: DeepSeek V4 Flash/Pro replaces Gemini 2.5 Flash Lite/3.1 Pro Preview in the corresponding roles.
+- The intended model change covers the complete three-role LLM stack, not only the answer model: DeepSeek V4 Flash/Pro replaces Gemini 2.5 Flash Lite/3.1 Pro Preview in the corresponding roles.
 - The five-error pilot proves that this full pipeline is nondeterministic, but its error-selected sample cannot estimate the whole-run variance.
+
+There is no sixth executed model role hidden behind the Hindsight API configuration. This evaluation used AMB `rag`, which calls one Hindsight recall per question and then the answer model; it did not call Hindsight `reflect` or the `agentic-rag` planner. The benchmark also created banks with observations disabled, so Hindsight's consolidation LLM path did not execute. The captured daemon log's only Hindsight LLM call scope is `retain_extract_facts`. BM25, graph/temporal retrieval, Reciprocal Rank Fusion, date parsing, and the local `cl100k_base` context-token counter are algorithms or tokenization utilities, not additional model roles. The [AMB response-mode guide](../../general/response-modes.md) explains the `rag`, `agentic-rag`, and `agent` call boundaries.
 
 The defensible conclusion is therefore a **combined pipeline-performance difference**. Model-family capability and behavior are likely contributors, and nondeterminism is demonstrably present, but the current artifacts cannot apportion the 25 verdicts between them; doing so requires matched repeated runs or the stage-isolation experiment in Section 7.
 
-## 5. DeepSeek runtime versions and thinking mode
+## 5. Complete model inventory and runtime versions
 
-The evaluation used the supplier-resolved model versions `deepseek-v4-flash-0731` and `deepseek-v4-pro-0813`; thinking was enabled by default at `high`, which is the middle level in the supplier's three-level `low` / `high` / `max` presentation.
+The evaluation used five logical roles and four distinct configured model names. DeepSeek exposes supplier-resolved versions for the three external LLM roles, while the two local SentenceTransformers roles are attested to the repository/model-name level only because their exact cached Hugging Face snapshot revisions were not preserved.
 
-| Role | Requested model | Actual supplier version | Thinking configuration |
+| Execution stage and role | Configured or requested identity | Runtime resolution | Attestation boundary |
 |---|---|---|---|
-| Hindsight memory extraction | `deepseek-v4-flash` | `deepseek-v4-flash-0731` | Default thinking, effort `high` |
-| Final answer generation | `deepseek-v4-pro` | `deepseek-v4-pro-0813` | Default thinking, effort `high` |
-| Answer judging | `deepseek-v4-flash` | `deepseek-v4-flash-0731` | Default thinking, effort `high` |
+| Retain: Hindsight memory extraction | `openai` / `deepseek-v4-flash` | `deepseek-v4-flash-0731` | The `.env` selector and daemon log attest the requested alias and `retain_extract_facts` calls; the resolved suffix comes from manual inspection of supplier records. |
+| Retain and recall: Hindsight embedding | local / `BAAI/bge-small-en-v1.5` | 384-dimensional local model; exact weight revision unavailable | The `.env` pin, repair preflight, and original daemon startup log attest provider, model name, and dimension. This role has no supplier model-version response. |
+| Recall: Hindsight cross-encoder reranking | local / `cross-encoder/ms-marco-MiniLM-L-6-v2` | local model; exact weight revision unavailable | The `.env` pin, repair preflight, and original daemon startup log attest provider and model name. This role has no supplier model-version response. |
+| Answer: AMB final answer generation | `openai` / `deepseek-v4-pro` | `deepseek-v4-pro-0813` | The 500-result JSON records `openai:deepseek-v4-pro`; the resolved suffix comes from manual inspection of supplier records. |
+| Judge: AMB answer judging | `openai` / `deepseek-v4-flash` | `deepseek-v4-flash-0731` | The 500-result JSON records `openai:deepseek-v4-flash`; the resolved suffix comes from manual inspection of supplier records. |
 
-The three effort levels and resolved version suffixes above come from manual inspection of this run's DeepSeek supplier records. In that supplier presentation, `high` is the middle tier and must not be read as maximum reasoning effort.
+The three DeepSeek LLM roles used default thinking at effort `high`, which is the middle level in the supplier's three-level `low` / `high` / `max` presentation. The effort levels and resolved version suffixes above come from manual inspection of this run's DeepSeek supplier records; they are not fields in the AMB result JSON. Local embedding and reranking do not have a DeepSeek thinking mode.
 
-Although the benchmark caller sent `temperature=0`, it did not explicitly send `thinking` or `reasoning_effort`; [DeepSeek's thinking-mode documentation](https://api-docs.deepseek.com/guides/thinking_mode) states that thinking defaults to enabled, ordinary requests default to effort `high`, and this sampling setting has no effect in thinking mode. It was therefore not an active determinism control for the evaluated calls.
+Although the benchmark caller sent `temperature=0` for the external LLM calls, it did not explicitly send `thinking` or `reasoning_effort`; [DeepSeek's thinking-mode documentation](https://api-docs.deepseek.com/guides/thinking_mode) states that thinking defaults to enabled, ordinary requests default to effort `high`, and this sampling setting has no effect in thinking mode. It was therefore not an active determinism control for the evaluated calls.
 
 ## 6. Five-error nondeterminism pilot
 
