@@ -2,7 +2,7 @@
 
 English | [简体中文](README_CN.md)
 
-This branch focuses on reproducing Hindsight's published LongMemEval `s`-split evaluation with a DeepSeek model stack. The exact Flash model type used for memory extraction and judging was **`deepseek-v4-flash-0731`**; DeepSeek V4 Pro 0813 generated the final answers.
+This branch focuses on reproducing Hindsight's published LongMemEval `s`-split evaluation with **`hindsight-api@0.4.17`** and a DeepSeek model stack. The exact Flash model type used for memory extraction and judging was **`deepseek-v4-flash-0731`**; DeepSeek V4 Pro 0813 generated the final answers.
 
 ## 1. Paired official comparison
 

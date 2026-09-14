@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-这个分支专注于使用 DeepSeek 模型栈复现 Hindsight 已发布的 LongMemEval `s` split 评测。记忆提取和答案判定实际使用的 Flash 型号是 **`deepseek-v4-flash-0731`**；最终答案由 DeepSeek V4 Pro 0813 生成。
+这个分支专注于使用 **`hindsight-api@0.4.17`** 和 DeepSeek 模型栈复现 Hindsight 已发布的 LongMemEval `s` split 评测。记忆提取和答案判定实际使用的 Flash 型号是 **`deepseek-v4-flash-0731`**；最终答案由 DeepSeek V4 Pro 0813 生成。
 
 ## 1. 与官方结果的配对比较
 
