@@ -1,106 +1,73 @@
-# AMB — Agent Memory Benchmark
+# LongMemEval Hindsight Reproduction with DeepSeek V4
 
-We built AMB because we wanted to be honest about how Hindsight performs — and because no existing benchmark gave us the full picture. AMB is fully open: datasets, prompts, scoring logic, and results.
+English | [简体中文](README_CN.md)
 
-Live leaderboard: **[agentmemorybenchmark.ai](https://agentmemorybenchmark.ai)**
+This branch focuses on reproducing Hindsight's published LongMemEval `s`-split evaluation with a DeepSeek model stack. The exact Flash model type used for memory extraction and judging was **`deepseek-v4-flash-0731`**; DeepSeek V4 Pro 0813 generated the final answers.
 
-## The problem with existing benchmarks
+## 1. Paired official comparison
 
-LoComo and LongMemEval are solid datasets, but they were designed for an era of 32k context windows. State-of-the-art models now have million-token context windows — on most instances, a naive "dump everything into context" approach scores competitively, not because it's a good memory architecture, but because retrieval has become the easy part. The benchmarks can no longer tell them apart.
+My run evaluated the same 500 query IDs, questions, gold answers, and metadata as the official result. It scored **448/500 (89.6%)**, versus the official Hindsight result's **473/500 (94.6%)**.
 
-Both datasets were also built around chatbot use cases. Agents today don't just answer questions about conversation history — they research, plan, execute multi-step tasks, and build knowledge across many interactions. AMB adds datasets that focus on agentic tasks: memory across tool calls, knowledge built from document research, preferences applied to multi-step decisions.
+| Result | Correct | Accuracy | Extraction / answer / judge |
+| --- | ---: | ---: | --- |
+| [Official Hindsight](https://agentmemorybenchmark.ai/run/outputs%2Flongmemeval%2Fhindsight%2Frag%2Fs.json.gz?id=e47becba) | 473/500 | 94.6% | Gemini 2.5 Flash Lite / Gemini 3.1 Pro Preview / Gemini 2.5 Flash Lite |
+| My DeepSeek V4 run | 448/500 | 89.6% | Flash 0731 / Pro 0813 / Flash 0731 |
+| Difference | -25 | -5.0 percentage points | Combined pipeline difference, not a model-only A/B test |
 
-## What AMB measures
+| Paired verdict | Questions |
+| --- | ---: |
+| Both pass | 434 |
+| Official pass, mine fails | 39 |
+| Official fails, mine passes | 14 |
+| Both fail | 13 |
 
-A memory system that scores 90% accuracy but costs $10 per user per day is not better than one that scores 82% and costs $0.10. AMB starts from accuracy because it's the hardest to fake, and tracks speed and token cost alongside it.
+The deficit is concentrated in multi-session (`-14`) and temporal-reasoning (`-7`) questions. Three incomplete retain units were later rerun from scratch in isolated banks; all three remained correct, so the retain-complete repaired result also scores 448/500.
 
-The only credible benchmark result is one you can reproduce yourself. AMB publishes everything: the evaluation harness, judge prompts, answer generation prompts, and the exact models used. Small changes to any of these can swing accuracy scores by double digits — we publish all of them.
+### Why is my accuracy lower?
 
-## How it works
+1. **Different external LLM stack.** The official run used Gemini for extraction, answers, and judging; mine used Flash 0731, Pro 0813, and Flash 0731. A weaker or behaviorally different DeepSeek stack is the strongest candidate explanation, especially because extraction and judging both used Flash, but this is not isolated causal proof: all three LLM roles changed together and none of the 500 saved contexts are byte-identical. Among my 52 failures, 49 still contain every official answer-bearing session in their raw chunks, so most are not simple gold-session omissions.
+2. **Measured full-pipeline nondeterminism.** A five-error pilot plus 55 new full-pipeline reruns produced 8 recoveries, 1 regression, and 9 verdict flips. Population weighting over the clean 458-question frame estimated about **2.04 percentage points of net score drift** and **4.66 percentage points of gross bidirectional verdict instability**. These are engineering-scale observations, not a confidence interval or proof that nondeterminism caused a fixed share of the 5-point gap.
+3. **Ambiguous dataset answers and evidence labels.** Manual full-history audits found that `6d550036` supports either 2 or 3 projects depending on the meaning of “led,” while `51a45a95` most plausibly intends `Target` without directly stating that the coupon was redeemed there. Both runs failed both questions, so these cases weaken absolute-accuracy interpretation but contribute zero to the paired 25-verdict gap. Two audited cases do not establish the dataset-wide defect rate.
 
-AMB separates memory extraction, final-answer generation, and answer judging so each role can use the model and API protocol appropriate to its job.
+The evidence supports a combined pipeline-performance difference; it cannot apportion the 25-verdict gap among model capability, model-induced extraction/retrieval changes, and judge variation. See the [analysis summary](eval_analysis/README.md), [full comparison](docs/hindsight_eval/longmemeval/20260-0822/summary.md), [nondeterminism study](docs/hindsight_eval/longmemeval/20260-0822/deepseek-non-deterimination.md), [gold-answer audits](docs/hindsight_eval/longmemeval/gold-answer-case-studies.md), and [redacted evidence capsule](eval_analysis/evidence/README.md).
 
-1. **Ingest** — documents from a dataset are loaded into a memory provider
-2. **Retrieve** — for each query the memory provider retrieves relevant context
-3. **Generate** — the model selected by `OMB_ANSWER_LLM` and `OMB_ANSWER_MODEL` produces an answer from the retrieved context
-4. **Judge** — the model selected by `OMB_JUDGE_LLM` and `OMB_JUDGE_MODEL` scores the answer against gold answers
+## 2. Reproduction configuration
 
-Retrieval time is tracked separately from generation; ingestion time is also recorded.
+The run keeps the public AMB baseline, LongMemEval inputs, and Hindsight v0.4.17 target fixed while replacing the three external Gemini roles with DeepSeek.
 
-### Hindsight extraction protocols
+| Component | Pin |
+| --- | --- |
+| Workload | LongMemEval cleaned `s` split; 500 questions; `rag`; non-Oracle |
+| Dataset | [`xiaowu0162/longmemeval-cleaned`](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/tree/98d7416c24c778c2fee6e6f3006e7a073259d48f) revision `98d7416c24c778c2fee6e6f3006e7a073259d48f`; 277,383,467 bytes; SHA-256 `d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442` |
+| Published AMB base | [`decbb07f4f9899deac28a76293564cf263872652`](https://github.com/vectorize-io/agent-memory-benchmark/tree/decbb07f4f9899deac28a76293564cf263872652) |
+| DeepSeek configuration | [`9880574ac3a22caf0324ebc1c435e60211f1e256`](https://github.com/rocke2020/agent-memory-benchmark/commit/9880574ac3a22caf0324ebc1c435e60211f1e256), based on the published commit above |
+| Hindsight | `hindsight-all==0.4.17`, `hindsight-embed==0.4.17`, runtime `hindsight-api@0.4.17`; source [`2191654b1f9b454703916612fec57ce226c7746b`](https://github.com/vectorize-io/hindsight/tree/2191654b1f9b454703916612fec57ce226c7746b) |
+| Recorded result | `outputs/longmemeval/hindsight-deepseek/rag/s.json`; SHA-256 `4e94268f30bda9dedf45853c37b1aa9b4385c6e8a4121f2eb3141e77c1d4fb23` |
 
-The embedded Hindsight provider delegates memory extraction to the Hindsight daemon. AMB selects the daemon adapter with `HINDSIGHT_API_LLM_PROVIDER`; this Hindsight provider selector identifies an API protocol adapter, not necessarily the model vendor.
+### Models used
 
-| `HINDSIGHT_API_LLM_PROVIDER` | API protocol | Example vendor |
-| --- | --- | --- |
-| `openai` | OpenAI Chat Completions | OpenAI, DeepSeek, or another compatible endpoint |
-| `openai-responses` | OpenAI Responses | OpenAI |
-| `anthropic` | Anthropic Messages | Anthropic |
-| `gemini` | Gemini GenerateContent | Google |
+| Role | Model |
+| --- | --- |
+| Hindsight extraction and AMB judging | OpenAI-compatible `deepseek-v4-flash-0731`; requested alias `deepseek-v4-flash` |
+| Final-answer generation | OpenAI-compatible `deepseek-v4-pro-0813`; requested alias `deepseek-v4-pro` |
+| Hindsight embedding | Local `BAAI/bge-small-en-v1.5`, 384 dimensions |
+| Hindsight reranking | Local `cross-encoder/ms-marco-MiniLM-L-6-v2` |
 
-Set `HINDSIGHT_API_LLM_MODEL` and, when overriding credentials, `HINDSIGHT_API_LLM_API_KEY`. Setting `HINDSIGHT_API_LLM_BASE_URL` also requires the Hindsight-specific key so a conventional credential cannot be sent to an unrelated endpoint. When neither Hindsight-specific value is set, AMB resolves a key and base URL from the same conventional provider namespace. Native Gemini does not use a custom base URL in this integration.
+The external calls used default DeepSeek thinking at effort `high`. The caller sent `temperature=0` without an explicit thinking setting, which did not make the pipeline deterministic. Exact cached Hugging Face revisions for the two local models were not preserved.
 
-When no selector is set, AMB preserves the original `gemini` and `gemini-2.5-flash-lite` defaults. The pinned `hindsight-api@0.4.17` daemon supports `openai`, `anthropic`, and `gemini`. The `openai-responses` adapter requires `hindsight-api@0.9.0` or newer, selected with `HINDSIGHT_EMBED_API_VERSION`. Changing that daemon version is not a strict reproduction of the original pinned Hindsight run, and compatibility between the pinned 0.4.17 embedded client and a 0.9.x daemon remains unverified without an end-to-end run.
+The 448/500 artifact was assembled across resumptions and does not embed each invocation's Git SHA. The configuration above is the documented public rerun pin, not a claim of byte-identical source provenance for every historical invocation.
 
-The four selectors are covered by offline configuration tests. To limit external calls and cost, this branch's live provider test covers only the active DeepSeek Chat Completions path.
+## 3. Run the reproduction
 
-AMB derives the embedded Hindsight profile from the selected daemon version and extraction configuration. This prevents a healthy daemon started for one provider from being silently reused after the provider, model, endpoint, or credential changes; the credential itself is never placed in the profile name. Each profile owns a separate pg0 memory store, so changing any fingerprinted setting requires re-ingestion and cannot reuse the prior profile with `--skip-ingestion`.
-
-This branch currently uses DeepSeek through Chat Completions:
-
-```dotenv
-HINDSIGHT_EMBED_API_VERSION=0.4.17
-HINDSIGHT_API_LLM_PROVIDER=openai
-HINDSIGHT_API_LLM_MODEL=deepseek-v4-flash
-HINDSIGHT_API_LLM_API_KEY=${DEEPSEEK_API_KEY}
-HINDSIGHT_API_LLM_BASE_URL=${DEEPSEEK_BASE_URL}
-OPENAI_API_KEY=${DEEPSEEK_API_KEY}
-OPENAI_BASE_URL=${DEEPSEEK_BASE_URL}
-```
-
-## Setup
-
-Configure credentials for the answer, judge, and memory-extraction models selected for the run. For this branch's DeepSeek configuration:
-
-```bash
-# Store the real value only in the ignored local .env file.
-DEEPSEEK_API_KEY=...
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-OPENAI_API_KEY=${DEEPSEEK_API_KEY}
-OPENAI_BASE_URL=${DEEPSEEK_BASE_URL}
-```
-
-## Usage
+The full evaluation makes paid model calls and recreates same-named benchmark banks. Follow the [complete reproduction guide](docs/hindsight_eval/longmemeval/20260-0822/94.6-reproduction.md): use a fresh disposable Hindsight environment, check out the pinned DeepSeek commit, install with `uv sync --frozen`, download and hash-check the pinned dataset, configure the model roles above in an uncommitted `.env`, and pass the dry, limited, and Oracle gates before starting all 500 questions.
 
 ```bash
-# List available datasets, memory providers, and modes
-uv run amb providers
-
-# List domains for a dataset
-uv run amb domains --dataset personamem
-
-# Run a benchmark
-uv run amb run --dataset personamem --domain 32k --memory bm25
-
-# Limit scale for a quick test
-uv run amb run --dataset personamem --domain 32k --memory bm25 --query-limit 20
-
-# Oracle mode: ingest only gold documents (tests generation quality in isolation)
-uv run amb run --dataset personamem --domain 32k --memory bm25 --oracle
-
-# Dataset statistics
-uv run amb dataset-stats --dataset personamem
-
-# Browse results in the browser
-uv run amb view
+uv run omb run \
+  --dataset longmemeval \
+  --split s \
+  --memory hindsight \
+  --mode rag \
+  --name hindsight-deepseek
 ```
 
-## Results
-
-Results are saved to `outputs/{dataset}/{memory}/{mode}/{domain}.json` and can be explored with `uv run amb view`.
-
-## Requirements
-
-- Python ≥ 3.11
-- Credentials for the selected extraction, answer, and judge providers
-- For MemBench: set `MEMBENCH_DATA_PATH` to your local data directory
+These steps reproduce the documented configuration, not a guaranteed 448/500 score or identical verdict vector. Every new result must be validated independently.
