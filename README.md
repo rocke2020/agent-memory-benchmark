@@ -71,3 +71,28 @@ uv run omb run \
 ```
 
 These steps reproduce the documented configuration, not a guaranteed 448/500 score or identical verdict vector. Every new result must be validated independently.
+
+## 4. How to read the report
+
+The reproduction is documented as a layered report. Each layer answers a different question, so read it in this order:
+
+| Order | Document | What it answers |
+| --- | --- | --- |
+| 1 | [Reproduction summary](docs/hindsight_eval/longmemeval/20260-0822/summary.md) | The headline 448/500 result, the paired comparison, what "Ctx tokens" and "indexing tokens" actually measure, the attribution boundary for the 5-point gap, and the reusable artifacts |
+| 2 | [DeepSeek nondeterminism study](docs/hindsight_eval/longmemeval/20260-0822/deepseek-non-deterimination.md) | How the 2.04 pp net-drift and 4.66 pp gross-instability estimates were produced, and when a single run can reliably rank two memory systems |
+| 3 | [Analysis summary and tooling](eval_analysis/README.md) | The offline official report UI, the paired-comparison and repair tooling, the root cause of the three skipped retain batches, and the local test suite |
+| 4 | [Gold-answer case studies](docs/hindsight_eval/longmemeval/gold-answer-case-studies.md) | Manual audits of ambiguous dataset gold answers such as `6d550036` and `51a45a95` |
+| 5 | [Model and token usage summary](docs/hindsight_eval/longmemeval/20260-0822/model-token-summary.md) | Measured token segments per model role and their proof boundary |
+| 6 | [Redacted evidence capsule](eval_analysis/evidence/README.md) | Compact, hash-checked files that make the score, paired-verdict, and pilot claims auditable from a clean checkout without the large paid-run artifacts |
+| 7 | [Full reproduction guide](docs/hindsight_eval/longmemeval/20260-0822/94.6-reproduction.md) | Step-by-step instructions for rerunning the whole evaluation yourself |
+
+To read the result itself interactively, serve it through the official AMB report UI offline (loopback only):
+
+```bash
+uv run python eval_analysis/amb_report.py serve \
+  outputs/longmemeval/hindsight-deepseek/rag/s.json \
+  --host 127.0.0.1 \
+  --port 7979
+```
+
+The served layout, calculations, filters, and question drill-down are the official implementation; only the entry HTML was adapted for offline use. For command-line reading, `eval_analysis/amb_report.py inspect` and `compare` reproduce the per-question summary and the paired official comparison, and the [evidence capsule](eval_analysis/evidence/README.md) lists `shasum` / `jq` verification commands that re-check the paired-verdict counts from the committed redacted files alone.

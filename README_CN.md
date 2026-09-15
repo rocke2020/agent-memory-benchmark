@@ -71,3 +71,28 @@ uv run omb run \
 ```
 
 这些步骤复现的是已记录配置，不保证再次得到 448/500 或完全相同的 verdict vector。每次新结果都必须独立验证。
+
+## 4. 如何阅读本复现的报告
+
+本复现的文档是分层组织的，每一层回答不同的问题，建议按以下顺序阅读：
+
+| 顺序 | 文档 | 回答的问题 |
+| --- | --- | --- |
+| 1 | [复现总结](docs/hindsight_eval/longmemeval/20260-0822/summary.md) | 448/500 的核心结果、与官方结果的配对比较、"Ctx tokens" 和 "indexing tokens" 的真实含义、5 个百分点差距的归因边界，以及可复用的分析工件 |
+| 2 | [DeepSeek 非确定性实验](docs/hindsight_eval/longmemeval/20260-0822/deepseek-non-deterimination.md) | 2.04 个百分点净漂移和 4.66 个百分点双向波动估计是如何得到的，以及单次运行何时能可靠比较两个 memory 系统 |
+| 3 | [分析总结与工具](eval_analysis/README.md) | 离线官方报告 UI、配对比较与修复工具、三个 retain 批次被跳过的根因，以及本地测试套件 |
+| 4 | [gold answer 人工审查](docs/hindsight_eval/longmemeval/gold-answer-case-studies.md) | 对 `6d550036`、`51a45a95` 等含糊数据集 gold answer 的人工审查 |
+| 5 | [模型与 token 用量总结](docs/hindsight_eval/longmemeval/20260-0822/model-token-summary.md) | 各模型角色的实测 token 分段及其证据边界 |
+| 6 | [脱敏证据包](eval_analysis/evidence/README.md) | 带哈希校验的紧凑文件，无需大型付费运行工件即可在干净 checkout 上审计分数、配对 verdict 和 pilot 结论 |
+| 7 | [完整复现指南](docs/hindsight_eval/longmemeval/20260-0822/94.6-reproduction.md) | 从头重跑整个评测的分步说明 |
+
+如果要交互式地查看结果本身，可以通过离线的官方 AMB 报告 UI 在本地提供结果（仅监听 loopback）：
+
+```bash
+uv run python eval_analysis/amb_report.py serve \
+  outputs/longmemeval/hindsight-deepseek/rag/s.json \
+  --host 127.0.0.1 \
+  --port 7979
+```
+
+所提供的页面布局、计算、过滤和题目下钻均为官方实现，仅入口 HTML 为离线使用做了适配。命令行阅读可使用 `eval_analysis/amb_report.py inspect` 和 `compare` 复现逐题摘要和与官方结果的配对比较；[脱敏证据包](eval_analysis/evidence/README.md)还列出了 `shasum` / `jq` 校验命令，仅凭已提交的脱敏文件即可复核配对 verdict 计数。
